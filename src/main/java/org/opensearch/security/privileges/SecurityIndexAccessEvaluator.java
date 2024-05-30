@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.google.common.collect.ImmutableSet;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -44,7 +45,6 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.security.auditlog.AuditLog;
 import org.opensearch.security.resolver.IndexResolverReplacer;
 import org.opensearch.security.resolver.IndexResolverReplacer.Resolved;
-import org.opensearch.security.securityconf.SecurityRoles;
 import org.opensearch.security.support.ConfigConstants;
 import org.opensearch.security.support.WildcardMatcher;
 import org.opensearch.security.user.User;
@@ -71,6 +71,7 @@ public class SecurityIndexAccessEvaluator {
 
     private final boolean isSystemIndexEnabled;
     private final boolean isSystemIndexPermissionEnabled;
+    private final static ImmutableSet<String> SYSTEM_INDEX_PERMISSION_SET = ImmutableSet.of(ConfigConstants.SYSTEM_INDEX_PERMISSION);
 
     public SecurityIndexAccessEvaluator(final Settings settings, AuditLog auditLog, IndexResolverReplacer irr) {
         this.securityIndex = settings.get(
@@ -126,12 +127,24 @@ public class SecurityIndexAccessEvaluator {
         final String action,
         final Resolved requestedResolved,
         final PrivilegesEvaluatorResponse presponse,
-        final SecurityRoles securityRoles,
+        final PrivilegesEvaluationContext context,
+        final ActionPrivileges actionPrivileges,
         final User user,
         final IndexNameExpressionResolver resolver,
         final ClusterService clusterService
     ) {
-        evaluateSystemIndicesAccess(action, requestedResolved, request, task, presponse, securityRoles, user, resolver, clusterService);
+        evaluateSystemIndicesAccess(
+            action,
+            requestedResolved,
+            request,
+            task,
+            presponse,
+            context,
+            actionPrivileges,
+            user,
+            resolver,
+            clusterService
+        );
 
         if (requestedResolved.isLocalAll()
             || requestedResolved.getAllIndices().contains(securityIndex)
@@ -232,7 +245,8 @@ public class SecurityIndexAccessEvaluator {
      * @param request the action request to be used for audit logging
      * @param task task in which this access check will be performed
      * @param presponse the pre-response object that will eventually become a response and returned to the requester
-     * @param securityRoles user's roles which will be used for access evaluation
+     * @param context conveys information about user and mapped roles, etc.
+     * @param actionPrivileges the up-to-date ActionPrivileges instance
      * @param user this user's permissions will be looked up
      * @param resolver the index expression resolver
      * @param clusterService required to fetch cluster state metadata
@@ -243,7 +257,8 @@ public class SecurityIndexAccessEvaluator {
         final ActionRequest request,
         final Task task,
         final PrivilegesEvaluatorResponse presponse,
-        SecurityRoles securityRoles,
+        final PrivilegesEvaluationContext context,
+        final ActionPrivileges actionPrivileges,
         final User user,
         final IndexNameExpressionResolver resolver,
         final ClusterService clusterService
@@ -257,7 +272,7 @@ public class SecurityIndexAccessEvaluator {
             if (serviceAccountUser && containsRegularIndex) {
                 auditLog.logSecurityIndexAttempt(request, action, task);
                 if (!containsSystemIndex && log.isInfoEnabled()) {
-                    log.info("{} not permitted for a service account {} on non-system indices.", action, securityRoles);
+                    log.info("{} not permitted for a service account {} on non-system indices.", action, context.getMappedRoles());
                 } else if (containsSystemIndex && log.isDebugEnabled()) {
                     List<String> regularIndices = requestedResolved.getAllIndices()
                         .stream()
@@ -279,7 +294,7 @@ public class SecurityIndexAccessEvaluator {
                     log.info(
                         "{} not permitted for a regular user {} on protected system indices {}",
                         action,
-                        securityRoles,
+                        context.getMappedRoles(),
                         String.join(", ", getAllProtectedSystemIndices(requestedResolved))
                     );
                 }
@@ -287,19 +302,13 @@ public class SecurityIndexAccessEvaluator {
                 presponse.markComplete();
                 return;
             } else if (containsSystemIndex
-                && !securityRoles.hasExplicitIndexPermission(
-                    requestedResolved,
-                    user,
-                    new String[] { ConfigConstants.SYSTEM_INDEX_PERMISSION },
-                    resolver,
-                    clusterService
-                )) {
+                && !actionPrivileges.hasExplicitIndexPrivilege(context, SYSTEM_INDEX_PERMISSION_SET, requestedResolved).isAllowed()) {
                     auditLog.logSecurityIndexAttempt(request, action, task);
                     if (log.isInfoEnabled()) {
                         log.info(
                             "No {} permission for user roles {} to System Indices {}",
                             action,
-                            securityRoles,
+                            context.getMappedRoles(),
                             String.join(", ", getAllSystemIndices(requestedResolved))
                         );
                     }
