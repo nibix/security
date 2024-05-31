@@ -12,9 +12,11 @@ package org.opensearch.security.privileges;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import com.google.common.collect.ImmutableSet;
 
+import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.security.support.WildcardMatcher;
 import org.opensearch.security.user.User;
@@ -42,6 +44,7 @@ public class PrivilegesEvaluationContext {
     private final Map<String, WildcardMatcher> renderedPatternTemplateCache = new HashMap<>();
     private final ImmutableSet<String> mappedRoles;
 
+    private final Supplier<ClusterState> clusterStateSupplier;
     private final IndexNameExpressionResolver indexNameExpressionResolver;
 
     public PrivilegesEvaluationContext(
@@ -49,12 +52,14 @@ public class PrivilegesEvaluationContext {
         ImmutableSet<String> mappedRoles,
         String action,
         Object request,
+        Supplier<ClusterState> clusterStateSupplier,
         IndexNameExpressionResolver indexNameExpressionResolver
     ) {
         this.user = user;
         this.mappedRoles = mappedRoles;
         this.action = action;
         this.request = request;
+        this.clusterStateSupplier = clusterStateSupplier;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
     }
 
@@ -95,12 +100,16 @@ public class PrivilegesEvaluationContext {
         if (this.mappedRoles != null && this.mappedRoles.equals(mappedRoles)) {
             return this;
         } else {
-            return new PrivilegesEvaluationContext(user, mappedRoles, action, request, indexNameExpressionResolver);
+            return new PrivilegesEvaluationContext(user, mappedRoles, action, request, clusterStateSupplier, indexNameExpressionResolver);
         }
     }
 
     public IndexNameExpressionResolver getIndexNameExpressionResolver() {
         return indexNameExpressionResolver;
+    }
+
+    public Supplier<ClusterState> getClusterStateSupplier() {
+        return clusterStateSupplier;
     }
 
 }
