@@ -125,7 +125,8 @@ public class SecurityIndexAccessEvaluatorTest {
                         Arrays.asList("*")
                     )
                 ),
-                CType.ROLES
+                CType.ROLES,
+                2
             );
 
             this.actionPrivileges = new ActionPrivileges(rolesConfig, FlattenedActionGroups.EMPTY, () -> indexMetadata);
