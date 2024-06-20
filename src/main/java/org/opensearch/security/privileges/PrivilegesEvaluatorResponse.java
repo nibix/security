@@ -36,6 +36,8 @@ import org.opensearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.opensearch.security.resolver.IndexResolverReplacer.Resolved;
 import org.opensearch.security.securityconf.EvaluatedDlsFlsConfig;
 
+import com.selectivem.check.CheckTable;
+
 public class PrivilegesEvaluatorResponse {
     boolean allowed = false;
     Set<String> missingSecurityRoles = new HashSet<>();
@@ -44,7 +46,7 @@ public class PrivilegesEvaluatorResponse {
     PrivilegesEvaluatorResponseState state = PrivilegesEvaluatorResponseState.PENDING;
     Resolved resolved;
     CreateIndexRequestBuilder createIndexRequestBuilder;
-    private ImmutableSet<String> onlyAllowedForIndices = ImmutableSet.of();
+    private Set<String> onlyAllowedForIndices = ImmutableSet.of();
     private CheckTable<String, String> indexToActionCheckTable;
     private String reason;
 
@@ -66,7 +68,7 @@ public class PrivilegesEvaluatorResponse {
         return !this.onlyAllowedForIndices.isEmpty();
     }
 
-    public ImmutableSet<String> getAvailableIndices() {
+    public Set<String> getAvailableIndices() {
         return this.onlyAllowedForIndices;
     }
 
