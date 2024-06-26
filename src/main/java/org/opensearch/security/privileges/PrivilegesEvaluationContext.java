@@ -16,10 +16,13 @@ import java.util.function.Supplier;
 
 import com.google.common.collect.ImmutableSet;
 
+import org.opensearch.action.ActionRequest;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
+import org.opensearch.security.resolver.IndexResolverReplacer;
 import org.opensearch.security.support.WildcardMatcher;
 import org.opensearch.security.user.User;
+import org.opensearch.tasks.Task;
 
 /**
  * Request-scoped context information for privilege evaluation.
@@ -31,10 +34,11 @@ import org.opensearch.security.user.User;
  * are necessary.
  */
 public class PrivilegesEvaluationContext {
-    private boolean resolveLocalAll = true;
     private final User user;
     private final String action;
-    private final Object request;
+    private final ActionRequest request;
+    private IndexResolverReplacer.Resolved resolvedRequest;
+    private final Task task;
 
     /**
      * This caches the ready to use WildcardMatcher instances for the current request. Many index patterns have
@@ -43,23 +47,27 @@ public class PrivilegesEvaluationContext {
      */
     private final Map<String, WildcardMatcher> renderedPatternTemplateCache = new HashMap<>();
     private final ImmutableSet<String> mappedRoles;
-
     private final Supplier<ClusterState> clusterStateSupplier;
+    private final IndexResolverReplacer indexResolverReplacer;
     private final IndexNameExpressionResolver indexNameExpressionResolver;
 
     public PrivilegesEvaluationContext(
         User user,
         ImmutableSet<String> mappedRoles,
         String action,
-        Object request,
+        ActionRequest request,
+        Task task,
         Supplier<ClusterState> clusterStateSupplier,
+        IndexResolverReplacer indexResolverReplacer,
         IndexNameExpressionResolver indexNameExpressionResolver
     ) {
         this.user = user;
         this.mappedRoles = mappedRoles;
         this.action = action;
         this.request = request;
+        this.task = task;
         this.clusterStateSupplier = clusterStateSupplier;
+        this.indexResolverReplacer = indexResolverReplacer;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
     }
 
@@ -88,8 +96,23 @@ public class PrivilegesEvaluationContext {
         return action;
     }
 
-    public Object getRequest() {
+    public ActionRequest getRequest() {
         return request;
+    }
+
+    public IndexResolverReplacer.Resolved getResolvedRequest() {
+        IndexResolverReplacer.Resolved result = this.resolvedRequest;
+
+        if (result == null) {
+            result = indexResolverReplacer.resolveRequest(request);
+            this.resolvedRequest = result;
+        }
+
+        return result;
+    }
+
+    public Task getTask() {
+        return task;
     }
 
     public ImmutableSet<String> getMappedRoles() {
@@ -100,7 +123,16 @@ public class PrivilegesEvaluationContext {
         if (this.mappedRoles != null && this.mappedRoles.equals(mappedRoles)) {
             return this;
         } else {
-            return new PrivilegesEvaluationContext(user, mappedRoles, action, request, clusterStateSupplier, indexNameExpressionResolver);
+            return new PrivilegesEvaluationContext(
+                user,
+                mappedRoles,
+                action,
+                request,
+                task,
+                clusterStateSupplier,
+                indexResolverReplacer,
+                indexNameExpressionResolver
+            );
         }
     }
 

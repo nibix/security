@@ -33,8 +33,6 @@ import java.util.Set;
 import com.google.common.collect.ImmutableSet;
 
 import org.opensearch.action.admin.indices.create.CreateIndexRequestBuilder;
-import org.opensearch.security.resolver.IndexResolverReplacer.Resolved;
-import org.opensearch.security.securityconf.EvaluatedDlsFlsConfig;
 
 import com.selectivem.check.CheckTable;
 
@@ -42,17 +40,11 @@ public class PrivilegesEvaluatorResponse {
     boolean allowed = false;
     Set<String> missingSecurityRoles = new HashSet<>();
     Set<String> resolvedSecurityRoles = new HashSet<>();
-    EvaluatedDlsFlsConfig evaluatedDlsFlsConfig;
     PrivilegesEvaluatorResponseState state = PrivilegesEvaluatorResponseState.PENDING;
-    Resolved resolved;
     CreateIndexRequestBuilder createIndexRequestBuilder;
     private Set<String> onlyAllowedForIndices = ImmutableSet.of();
     private CheckTable<String, String> indexToActionCheckTable;
     private String reason;
-
-    public Resolved getResolved() {
-        return resolved;
-    }
 
     /**
      * Returns true if the request can be fully allowed. See also isAllowedForSpecificIndices().
@@ -97,10 +89,6 @@ public class PrivilegesEvaluatorResponse {
         return new HashSet<>(resolvedSecurityRoles);
     }
 
-    public EvaluatedDlsFlsConfig getEvaluatedDlsFlsConfig() {
-        return evaluatedDlsFlsConfig;
-    }
-
     public CreateIndexRequestBuilder getCreateIndexRequestBuilder() {
         return createIndexRequestBuilder;
     }
@@ -131,8 +119,6 @@ public class PrivilegesEvaluatorResponse {
             + onlyAllowedForIndices
             + ",\n"
             + (indexToActionCheckTable != null ? indexToActionCheckTable.toTableString("ok", "MISSING") : "")
-            + ",\nevaluatedDlsFlsConfig="
-            + evaluatedDlsFlsConfig
             + "]";
     }
 
@@ -174,6 +160,29 @@ public class PrivilegesEvaluatorResponse {
     public static enum PrivilegesEvaluatorResponseState {
         PENDING,
         COMPLETE;
+    }
+
+    public static class NotAllowedException extends Exception {
+        private final PrivilegesEvaluatorResponse response;
+
+        public NotAllowedException(PrivilegesEvaluatorResponse response) {
+            super(response.reason);
+            this.response = response;
+        }
+
+        public NotAllowedException(PrivilegesEvaluatorResponse response, String message) {
+            super(message);
+            this.response = response;
+        }
+
+        public NotAllowedException(PrivilegesEvaluatorResponse response, String message, Throwable cause) {
+            super(message, cause);
+            this.response = response;
+        }
+
+        public PrivilegesEvaluatorResponse getResponse() {
+            return response;
+        }
     }
 
 }
