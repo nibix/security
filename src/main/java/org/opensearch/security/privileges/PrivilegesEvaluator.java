@@ -327,8 +327,6 @@ public class PrivilegesEvaluator {
 
         PrivilegesEvaluatorResponse presponse = new PrivilegesEvaluatorResponse();
 
-        final SecurityRoles securityRoles = getSecurityRoles(mappedRoles);
-
         // Add the security roles for this user so that they can be used for DLS parameter substitution.
         user.addSecurityRoles(mappedRoles);
         setUserInfoInThreadContext(user);
@@ -485,7 +483,6 @@ public class PrivilegesEvaluator {
         }
 
         ImmutableSet<String> allIndexPermsRequired = evaluateAdditionalIndexPermissions(request, action0);
-        // final String[] allIndexPermsRequiredA = allIndexPermsRequired.toArray(new String[0]);
 
         if (isDebugEnabled) {
             log.debug(
