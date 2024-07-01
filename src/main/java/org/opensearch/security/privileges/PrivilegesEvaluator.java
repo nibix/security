@@ -147,7 +147,7 @@ public class PrivilegesEvaluator {
 
     public PrivilegesEvaluator(
         final ClusterService clusterService,
-        final ThreadPool threadPool,
+        final ThreadContext threadContext,
         final ConfigurationRepository configurationRepository,
         final IndexNameExpressionResolver resolver,
         AuditLog auditLog,
@@ -164,7 +164,7 @@ public class PrivilegesEvaluator {
         this.resolver = resolver;
         this.auditLog = auditLog;
 
-        this.threadContext = threadPool.getThreadContext();
+        this.threadContext = threadContext;
         this.privilegesInterceptor = privilegesInterceptor;
 
         this.checkSnapshotRestoreWritePrivileges = settings.getAsBoolean(

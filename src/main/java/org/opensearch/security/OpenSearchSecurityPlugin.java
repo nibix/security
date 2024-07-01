@@ -1122,7 +1122,7 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
         final boolean dlsFlsEnabled = !SSLConfig.isSslOnlyMode();
         evaluator = new PrivilegesEvaluator(
             clusterService,
-            threadPool,
+            threadPool.getThreadContext(),
             cr,
             resolver,
             auditLog,
