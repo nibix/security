@@ -10,35 +10,28 @@
  */
 package org.opensearch.security.util;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
+import com.google.common.collect.ImmutableMap;
 import org.opensearch.Version;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.DataStream;
 import org.opensearch.cluster.metadata.IndexAbstraction;
 import org.opensearch.cluster.metadata.IndexMetadata;
-import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.index.Index;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Creates mocks of org.opensearch.cluster.metadata.IndexAbstraction maps. Useful for unit testing code which
  * operates on index metadata.
  */
 public class MockIndexMetadataBuilder {
-
-    private static final Settings INDEX_SETTINGS = Settings.builder()
-        .put(IndexMetadata.SETTING_INDEX_VERSION_CREATED.getKey(), Version.CURRENT)
-        .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, 1)
-        .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, 1)
-        .build();
-
-    private Metadata.Builder delegate = new Metadata.Builder();
-    private Map<String, IndexMetadata.Builder> nameToIndexMetadataBuilderMap = new HashMap<>();
 
     private Map<String, IndexAbstraction> nameToIndexAbstractionMap = new HashMap<>();
     private Map<String, IndexMetadata> nameToIndexMetadataMap = new HashMap<>();
@@ -65,16 +58,58 @@ public class MockIndexMetadataBuilder {
         return builder;
     }
 
-    public Metadata build() {
-        for (IndexMetadata.Builder indexMetadataBuilder : nameToIndexMetadataBuilderMap.values()) {
-            this.delegate.put(indexMetadataBuilder);
+    public ImmutableMap<String, IndexAbstraction> build() {
+        Map<String, AliasMetadata> aliasMetadataMap = new HashMap<>();
+
+        for (Map.Entry<String, Set<String>> aliasEntry : this.aliasesToIndices.entrySet()) {
+            String alias = aliasEntry.getKey();
+            AliasMetadata aliasMetadata = AliasMetadata.builder(alias).build();
+            aliasMetadataMap.put(alias, aliasMetadata);
         }
 
-        return this.delegate.build();
+        for (Map.Entry<String, Set<String>> indexEntry : this.indicesToAliases.entrySet()) {
+            String index = indexEntry.getKey();
+            Set<String> aliases = indexEntry.getValue();
+
+            IndexMetadata.Builder indexMetadataBuilder = IndexMetadata.builder(index)
+                .settings(Settings.builder().put(IndexMetadata.SETTING_INDEX_VERSION_CREATED.getKey(), Version.CURRENT))
+                .numberOfShards(1)
+                .numberOfReplicas(1);
+
+            for (String alias : aliases) {
+                indexMetadataBuilder.putAlias(aliasMetadataMap.get(alias));
+            }
+
+            IndexMetadata indexMetadata = indexMetadataBuilder.build();
+            nameToIndexMetadataMap.put(index, indexMetadata);
+            nameToIndexAbstractionMap.put(index, new IndexAbstraction.Index(indexMetadata));
+        }
+
+        for (Map.Entry<String, Set<String>> aliasEntry : this.aliasesToIndices.entrySet()) {
+            String alias = aliasEntry.getKey();
+            Set<String> indices = aliasEntry.getValue();
+            AliasMetadata aliasMetadata = aliasMetadataMap.get(alias);
+
+            String firstIndex = indices.iterator().next();
+            indices.remove(firstIndex);
+
+            IndexMetadata firstIndexMetadata = nameToIndexMetadataMap.get(firstIndex);
+            IndexAbstraction.Alias indexAbstraction = new IndexAbstraction.Alias(aliasMetadata, firstIndexMetadata);
+
+            for (String index : indices) {
+                indexAbstraction.getIndices().add(nameToIndexMetadataMap.get(index));
+            }
+
+            nameToIndexAbstractionMap.put(alias, indexAbstraction);
+        }
+
+        return ImmutableMap.copyOf(this.nameToIndexAbstractionMap);
     }
 
-    public MockIndexMetadataBuilder index(String indexName) {
-        getIndexMetadataBuilder(indexName);
+    public MockIndexMetadataBuilder index(String index) {
+        if (!this.indicesToAliases.containsKey(index)) {
+            this.indicesToAliases.put(index, new HashSet<>());
+        }
         return this;
     }
 
@@ -92,11 +127,21 @@ public class MockIndexMetadataBuilder {
         for (int i = 1; i <= generations; i++) {
             String backingIndexName = DataStream.getDefaultBackingIndexName(dataStream, i);
             backingIndices.add(new Index(backingIndexName, backingIndexName));
-            getIndexMetadata(backingIndexName);
         }
 
         DataStream dataStreamMetadata = new DataStream(dataStream, new DataStream.TimestampField("@timestamp"), backingIndices);
-        this.delegate.put(dataStreamMetadata);
+        IndexAbstraction.DataStream dataStreamIndexAbstraction = new IndexAbstraction.DataStream(
+            dataStreamMetadata,
+            backingIndices.stream().map(i -> getIndexMetadata(i.getName())).collect(Collectors.toList())
+        );
+        this.nameToIndexAbstractionMap.put(dataStream, dataStreamIndexAbstraction);
+
+        for (Index backingIndex : backingIndices) {
+            this.nameToIndexAbstractionMap.put(
+                backingIndex.getName(),
+                new IndexAbstraction.Index(getIndexMetadata(backingIndex.getName()), dataStreamIndexAbstraction)
+            );
+        }
 
         return this;
     }
@@ -116,51 +161,26 @@ public class MockIndexMetadataBuilder {
         return result;
     }
 
-    private IndexMetadata.Builder getIndexMetadataBuilder(String indexName) {
-        IndexMetadata.Builder result = this.nameToIndexMetadataBuilderMap.get(indexName);
-
-        if (result != null) {
-            return result;
-        }
-
-        result = new IndexMetadata.Builder(indexName).settings(INDEX_SETTINGS);
-
-        this.nameToIndexMetadataBuilderMap.put(indexName, result);
-
-        return result;
-    }
-
     public class AliasBuilder {
-        private String aliasName;
+        private String alias;
 
         private AliasBuilder(String alias) {
-            this.aliasName = alias;
+            this.alias = alias;
         }
 
-        public MockIndexMetadataBuilder of(String... indices) {
-            AliasMetadata aliasMetadata = new AliasMetadata.Builder(aliasName).build();
-
-            for (String index : indices) {
-                IndexMetadata.Builder indexMetadataBuilder = getIndexMetadataBuilder(index);
-                indexMetadataBuilder.putAlias(aliasMetadata);
-            }
-
-            /*
-
-            MockIndexMetadataBuilder.this.delegate.put(aliasMetadata);
-
-            MockIndexMetadataBuilder.this.indicesToAliases.computeIfAbsent(firstIndex, (k) -> new HashSet<>()).add(this.aliasName);
+        public MockIndexMetadataBuilder of(String firstIndex, String... moreIndices) {
+            MockIndexMetadataBuilder.this.indicesToAliases.computeIfAbsent(firstIndex, (k) -> new HashSet<>()).add(this.alias);
 
             Set<String> indices = new HashSet<>();
             indices.add(firstIndex);
 
             for (String index : moreIndices) {
-                MockIndexMetadataBuilder.this.indicesToAliases.computeIfAbsent(index, (k) -> new HashSet<>()).add(this.aliasName);
+                MockIndexMetadataBuilder.this.indicesToAliases.computeIfAbsent(index, (k) -> new HashSet<>()).add(this.alias);
                 indices.add(index);
             }
 
-            MockIndexMetadataBuilder.this.aliasesToIndices.put(this.aliasName, indices);
-              */
+            MockIndexMetadataBuilder.this.aliasesToIndices.put(this.alias, indices);
+
             return MockIndexMetadataBuilder.this;
         }
     }
