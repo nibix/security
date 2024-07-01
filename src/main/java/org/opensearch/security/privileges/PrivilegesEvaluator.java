@@ -95,7 +95,6 @@ import org.opensearch.security.support.ConfigConstants;
 import org.opensearch.security.support.WildcardMatcher;
 import org.opensearch.security.user.User;
 import org.opensearch.tasks.Task;
-import org.opensearch.threadpool.ThreadPool;
 
 import org.greenrobot.eventbus.Subscribe;
 
