@@ -33,8 +33,6 @@ import org.apache.logging.log4j.Logger;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.search.SearchRequest;
-import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
@@ -64,10 +62,8 @@ public class TermsAggregationEvaluator {
     public PrivilegesEvaluatorResponse evaluate(
         final Resolved resolved,
         final ActionRequest request,
-        ClusterService clusterService,
         User user,
         SecurityRoles securityRoles,
-        IndexNameExpressionResolver resolver,
         PrivilegesEvaluatorResponse presponse
     ) {
         try {
@@ -89,9 +85,7 @@ public class TermsAggregationEvaluator {
                             final Set<String> allPermittedIndices = securityRoles.getAllPermittedIndicesForDashboards(
                                 resolved,
                                 user,
-                                READ_ACTIONS,
-                                resolver,
-                                clusterService
+                                READ_ACTIONS
                             );
                             if (allPermittedIndices == null || allPermittedIndices.isEmpty()) {
                                 sr.source().query(NONE_QUERY);

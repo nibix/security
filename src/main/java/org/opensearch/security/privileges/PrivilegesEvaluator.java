@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
+import java.util.function.Supplier;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -71,6 +72,8 @@ import org.opensearch.action.search.SearchScrollAction;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.termvectors.MultiTermVectorsAction;
 import org.opensearch.action.update.UpdateAction;
+import org.opensearch.cluster.ClusterChangedEvent;
+import org.opensearch.cluster.ClusterStateListener;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
@@ -120,7 +123,7 @@ public class PrivilegesEvaluator {
     private static final IndicesOptions ALLOW_EMPTY = IndicesOptions.fromOptions(true, true, false, false);
 
     protected final Logger log = LogManager.getLogger(this.getClass());
-    private final ClusterService clusterService;
+    private final Supplier<ClusterState> clusterStateSupplier;
 
     private final IndexNameExpressionResolver resolver;
 
@@ -146,6 +149,7 @@ public class PrivilegesEvaluator {
 
     public PrivilegesEvaluator(
         final ClusterService clusterService,
+        Supplier<ClusterState> clusterStateSupplier,
         final ThreadContext threadContext,
         final ConfigurationRepository configurationRepository,
         final IndexNameExpressionResolver resolver,
@@ -159,12 +163,12 @@ public class PrivilegesEvaluator {
     ) {
 
         super();
-        this.clusterService = clusterService;
         this.resolver = resolver;
         this.auditLog = auditLog;
 
         this.threadContext = threadContext;
         this.privilegesInterceptor = privilegesInterceptor;
+        this.clusterStateSupplier = clusterStateSupplier;
 
         this.checkSnapshotRestoreWritePrivileges = settings.getAsBoolean(
             ConfigConstants.SECURITY_CHECK_SNAPSHOT_RESTORE_WRITE_PRIVILEGES,
@@ -275,7 +279,7 @@ public class PrivilegesEvaluator {
 
         final boolean isDebugEnabled = log.isDebugEnabled();
         if (isDebugEnabled) {
-            log.debug("Evaluate permissions for {} on {}", user, clusterService.localNode().getName());
+            log.debug("Evaluate permissions for {}", user);
             log.debug("Action: {} ({})", action0, request.getClass().getSimpleName());
             log.debug("Mapped roles: {}", mappedRoles.toString());
         }
@@ -325,8 +329,7 @@ public class PrivilegesEvaluator {
             presponse,
             securityRoles,
             user,
-            resolver,
-            clusterService
+            resolver
         ).isComplete()) {
             return presponse;
         }
@@ -695,14 +698,14 @@ public class PrivilegesEvaluator {
             indexMetaDataCollection = new Iterable<IndexMetadata>() {
                 @Override
                 public Iterator<IndexMetadata> iterator() {
-                    return clusterService.state().getMetadata().getIndices().values().iterator();
+                    return clusterStateSupplier.get().getMetadata().getIndices().values().iterator();
                 }
             };
         } else {
             Set<IndexMetadata> indexMetaDataSet = new HashSet<>(requestedResolved.getAllIndices().size());
 
             for (String requestAliasOrIndex : requestedResolved.getAllIndices()) {
-                IndexMetadata indexMetaData = clusterService.state().getMetadata().getIndices().get(requestAliasOrIndex);
+                IndexMetadata indexMetaData = clusterStateSupplier.get().getMetadata().getIndices().get(requestAliasOrIndex);
                 if (indexMetaData == null) {
                     if (isDebugEnabled) {
                         log.debug("{} does not exist in cluster metadata", requestAliasOrIndex);

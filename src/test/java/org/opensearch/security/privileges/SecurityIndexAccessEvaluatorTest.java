@@ -171,7 +171,8 @@ public class SecurityIndexAccessEvaluatorTest {
             UNPROTECTED_ACTION,
             resolved,
             presponse,
-            securityRoles,
+            ctx(UNPROTECTED_ACTION),
+            actionPrivileges,
             user,
             indexNameExpressionResolver,
             cs
@@ -193,7 +194,8 @@ public class SecurityIndexAccessEvaluatorTest {
             UNPROTECTED_ACTION,
             resolved,
             presponse,
-            securityRoles,
+            ctx(UNPROTECTED_ACTION),
+            actionPrivileges,
             user,
             indexNameExpressionResolver,
             cs
@@ -214,7 +216,8 @@ public class SecurityIndexAccessEvaluatorTest {
             UNPROTECTED_ACTION,
             resolved,
             presponse,
-            securityRoles,
+            ctx(UNPROTECTED_ACTION),
+            actionPrivileges,
             user,
             indexNameExpressionResolver,
             cs
@@ -235,7 +238,8 @@ public class SecurityIndexAccessEvaluatorTest {
             UNPROTECTED_ACTION,
             resolved,
             presponse,
-            securityRoles,
+            ctx(UNPROTECTED_ACTION),
+            actionPrivileges,
             user,
             indexNameExpressionResolver,
             cs
@@ -256,7 +260,8 @@ public class SecurityIndexAccessEvaluatorTest {
             UNPROTECTED_ACTION,
             resolved,
             presponse,
-            securityRoles,
+            ctx(UNPROTECTED_ACTION),
+            actionPrivileges,
             user,
             indexNameExpressionResolver,
             cs
@@ -277,7 +282,8 @@ public class SecurityIndexAccessEvaluatorTest {
             UNPROTECTED_ACTION,
             resolved,
             presponse,
-            securityRoles,
+            ctx(UNPROTECTED_ACTION),
+            actionPrivileges,
             user,
             indexNameExpressionResolver,
             cs
@@ -302,7 +308,8 @@ public class SecurityIndexAccessEvaluatorTest {
             UNPROTECTED_ACTION,
             resolved,
             presponse,
-            securityRoles,
+            ctx(UNPROTECTED_ACTION),
+            actionPrivileges,
             user,
             indexNameExpressionResolver,
             cs
@@ -321,14 +328,26 @@ public class SecurityIndexAccessEvaluatorTest {
         final Resolved resolved = createResolved(TEST_SYSTEM_INDEX);
 
         // Action
-        evaluator.evaluate(request, null, UNPROTECTED_ACTION, resolved, presponse, securityRoles, user, indexNameExpressionResolver, cs);
+        evaluator.evaluate(
+            request,
+            null,
+            UNPROTECTED_ACTION,
+            resolved,
+            presponse,
+            ctx(UNPROTECTED_ACTION),
+            actionPrivileges,
+            user,
+            indexNameExpressionResolver,
+            cs
+        );
         evaluator.evaluate(
             searchRequest,
             null,
             UNPROTECTED_ACTION,
             resolved,
             presponse,
-            securityRoles,
+            ctx(UNPROTECTED_ACTION),
+            actionPrivileges,
             user,
             indexNameExpressionResolver,
             cs
@@ -339,7 +358,8 @@ public class SecurityIndexAccessEvaluatorTest {
             UNPROTECTED_ACTION,
             resolved,
             presponse,
-            securityRoles,
+            ctx(UNPROTECTED_ACTION),
+            actionPrivileges,
             user,
             indexNameExpressionResolver,
             cs
@@ -357,14 +377,26 @@ public class SecurityIndexAccessEvaluatorTest {
         final Resolved resolved = createResolved(TEST_SYSTEM_INDEX);
 
         // Action
-        evaluator.evaluate(request, null, UNPROTECTED_ACTION, resolved, presponse, securityRoles, user, indexNameExpressionResolver, cs);
+        evaluator.evaluate(
+            request,
+            null,
+            UNPROTECTED_ACTION,
+            resolved,
+            presponse,
+            ctx(UNPROTECTED_ACTION),
+            actionPrivileges,
+            user,
+            indexNameExpressionResolver,
+            cs
+        );
         evaluator.evaluate(
             searchRequest,
             null,
             UNPROTECTED_ACTION,
             resolved,
             presponse,
-            securityRoles,
+            ctx(UNPROTECTED_ACTION),
+            actionPrivileges,
             user,
             indexNameExpressionResolver,
             cs
@@ -375,7 +407,8 @@ public class SecurityIndexAccessEvaluatorTest {
             UNPROTECTED_ACTION,
             resolved,
             presponse,
-            securityRoles,
+            ctx(UNPROTECTED_ACTION),
+            actionPrivileges,
             user,
             indexNameExpressionResolver,
             cs
@@ -398,14 +431,26 @@ public class SecurityIndexAccessEvaluatorTest {
         final Resolved resolved = createResolved(TEST_SYSTEM_INDEX);
 
         // Action
-        evaluator.evaluate(request, null, UNPROTECTED_ACTION, resolved, presponse, securityRoles, user, indexNameExpressionResolver, cs);
+        evaluator.evaluate(
+            request,
+            null,
+            UNPROTECTED_ACTION,
+            resolved,
+            presponse,
+            ctx(UNPROTECTED_ACTION),
+            actionPrivileges,
+            user,
+            indexNameExpressionResolver,
+            cs
+        );
         evaluator.evaluate(
             searchRequest,
             null,
             UNPROTECTED_ACTION,
             resolved,
             presponse,
-            securityRoles,
+            ctx(UNPROTECTED_ACTION),
+            actionPrivileges,
             user,
             indexNameExpressionResolver,
             cs
@@ -416,7 +461,8 @@ public class SecurityIndexAccessEvaluatorTest {
             UNPROTECTED_ACTION,
             resolved,
             presponse,
-            securityRoles,
+            ctx(UNPROTECTED_ACTION),
+            actionPrivileges,
             user,
             indexNameExpressionResolver,
             cs
@@ -453,14 +499,26 @@ public class SecurityIndexAccessEvaluatorTest {
         final Resolved resolved = createResolved(TEST_SYSTEM_INDEX);
 
         // Action
-        evaluator.evaluate(request, null, UNPROTECTED_ACTION, resolved, presponse, securityRoles, user, indexNameExpressionResolver, cs);
+        evaluator.evaluate(
+            request,
+            null,
+            UNPROTECTED_ACTION,
+            resolved,
+            presponse,
+            ctx(UNPROTECTED_ACTION),
+            actionPrivileges,
+            user,
+            indexNameExpressionResolver,
+            cs
+        );
         evaluator.evaluate(
             searchRequest,
             null,
             UNPROTECTED_ACTION,
             resolved,
             presponse,
-            securityRoles,
+            ctx(UNPROTECTED_ACTION),
+            actionPrivileges,
             user,
             indexNameExpressionResolver,
             cs
@@ -471,7 +529,8 @@ public class SecurityIndexAccessEvaluatorTest {
             UNPROTECTED_ACTION,
             resolved,
             presponse,
-            securityRoles,
+            ctx(UNPROTECTED_ACTION),
+            actionPrivileges,
             user,
             indexNameExpressionResolver,
             cs
@@ -491,7 +550,18 @@ public class SecurityIndexAccessEvaluatorTest {
         final Resolved resolved = Resolved._LOCAL_ALL;
 
         // Action
-        evaluator.evaluate(request, task, PROTECTED_ACTION, resolved, presponse, securityRoles, user, indexNameExpressionResolver, cs);
+        evaluator.evaluate(
+            request,
+            task,
+            PROTECTED_ACTION,
+            resolved,
+            presponse,
+            ctx(PROTECTED_ACTION),
+            actionPrivileges,
+            user,
+            indexNameExpressionResolver,
+            cs
+        );
 
         verify(auditLog).logSecurityIndexAttempt(request, PROTECTED_ACTION, task);
         assertThat(presponse.allowed, is(false));
@@ -505,7 +575,18 @@ public class SecurityIndexAccessEvaluatorTest {
         final Resolved resolved = Resolved._LOCAL_ALL;
 
         // Action
-        evaluator.evaluate(request, task, PROTECTED_ACTION, resolved, presponse, securityRoles, user, indexNameExpressionResolver, cs);
+        evaluator.evaluate(
+            request,
+            task,
+            PROTECTED_ACTION,
+            resolved,
+            presponse,
+            ctx(PROTECTED_ACTION),
+            actionPrivileges,
+            user,
+            indexNameExpressionResolver,
+            cs
+        );
 
         verify(auditLog).logSecurityIndexAttempt(request, PROTECTED_ACTION, task);
         assertThat(presponse.allowed, is(false));
@@ -519,7 +600,18 @@ public class SecurityIndexAccessEvaluatorTest {
         final Resolved resolved = Resolved._LOCAL_ALL;
 
         // Action
-        evaluator.evaluate(request, task, PROTECTED_ACTION, resolved, presponse, securityRoles, user, indexNameExpressionResolver, cs);
+        evaluator.evaluate(
+            request,
+            task,
+            PROTECTED_ACTION,
+            resolved,
+            presponse,
+            ctx(PROTECTED_ACTION),
+            actionPrivileges,
+            user,
+            indexNameExpressionResolver,
+            cs
+        );
 
         verify(auditLog).logSecurityIndexAttempt(request, PROTECTED_ACTION, task);
         assertThat(presponse.allowed, is(false));
@@ -533,7 +625,18 @@ public class SecurityIndexAccessEvaluatorTest {
         final Resolved resolved = createResolved(TEST_INDEX);
 
         // Action
-        evaluator.evaluate(request, task, PROTECTED_ACTION, resolved, presponse, securityRoles, user, indexNameExpressionResolver, cs);
+        evaluator.evaluate(
+            request,
+            task,
+            PROTECTED_ACTION,
+            resolved,
+            presponse,
+            ctx(PROTECTED_ACTION),
+            actionPrivileges,
+            user,
+            indexNameExpressionResolver,
+            cs
+        );
 
         assertThat(presponse.allowed, is(false));
     }
@@ -544,7 +647,18 @@ public class SecurityIndexAccessEvaluatorTest {
         final Resolved resolved = createResolved(TEST_INDEX);
 
         // Action
-        evaluator.evaluate(request, task, PROTECTED_ACTION, resolved, presponse, securityRoles, user, indexNameExpressionResolver, cs);
+        evaluator.evaluate(
+            request,
+            task,
+            PROTECTED_ACTION,
+            resolved,
+            presponse,
+            ctx(PROTECTED_ACTION),
+            actionPrivileges,
+            user,
+            indexNameExpressionResolver,
+            cs
+        );
 
         assertThat(presponse.allowed, is(false));
     }
@@ -555,7 +669,18 @@ public class SecurityIndexAccessEvaluatorTest {
         final Resolved resolved = createResolved(TEST_INDEX);
 
         // Action
-        evaluator.evaluate(request, task, PROTECTED_ACTION, resolved, presponse, securityRoles, user, indexNameExpressionResolver, cs);
+        evaluator.evaluate(
+            request,
+            task,
+            PROTECTED_ACTION,
+            resolved,
+            presponse,
+            ctx(PROTECTED_ACTION),
+            actionPrivileges,
+            user,
+            indexNameExpressionResolver,
+            cs
+        );
 
         assertThat(presponse.allowed, is(false));
     }
@@ -566,7 +691,18 @@ public class SecurityIndexAccessEvaluatorTest {
         final Resolved resolved = createResolved(TEST_SYSTEM_INDEX);
 
         // Action
-        evaluator.evaluate(request, task, PROTECTED_ACTION, resolved, presponse, securityRoles, user, indexNameExpressionResolver, cs);
+        evaluator.evaluate(
+            request,
+            task,
+            PROTECTED_ACTION,
+            resolved,
+            presponse,
+            ctx(PROTECTED_ACTION),
+            actionPrivileges,
+            user,
+            indexNameExpressionResolver,
+            cs
+        );
 
         assertThat(presponse.allowed, is(false));
     }
@@ -577,7 +713,18 @@ public class SecurityIndexAccessEvaluatorTest {
         final Resolved resolved = createResolved(TEST_SYSTEM_INDEX);
 
         // Action
-        evaluator.evaluate(request, task, PROTECTED_ACTION, resolved, presponse, securityRoles, user, indexNameExpressionResolver, cs);
+        evaluator.evaluate(
+            request,
+            task,
+            PROTECTED_ACTION,
+            resolved,
+            presponse,
+            ctx(PROTECTED_ACTION),
+            actionPrivileges,
+            user,
+            indexNameExpressionResolver,
+            cs
+        );
 
         verify(auditLog).logSecurityIndexAttempt(request, PROTECTED_ACTION, task);
         assertThat(presponse.allowed, is(false));
@@ -591,7 +738,18 @@ public class SecurityIndexAccessEvaluatorTest {
         final Resolved resolved = createResolved(TEST_SYSTEM_INDEX);
 
         // Action
-        evaluator.evaluate(request, task, PROTECTED_ACTION, resolved, presponse, securityRoles, user, indexNameExpressionResolver, cs);
+        evaluator.evaluate(
+            request,
+            task,
+            PROTECTED_ACTION,
+            resolved,
+            presponse,
+            ctx(PROTECTED_ACTION),
+            actionPrivileges,
+            user,
+            indexNameExpressionResolver,
+            cs
+        );
 
         verify(auditLog).logSecurityIndexAttempt(request, PROTECTED_ACTION, task);
         assertThat(presponse.allowed, is(false));
@@ -607,7 +765,18 @@ public class SecurityIndexAccessEvaluatorTest {
         final Resolved resolved = createResolved(TEST_SYSTEM_INDEX);
 
         // Action
-        evaluator.evaluate(request, task, PROTECTED_ACTION, resolved, presponse, securityRoles, user, indexNameExpressionResolver, cs);
+        evaluator.evaluate(
+            request,
+            task,
+            PROTECTED_ACTION,
+            resolved,
+            presponse,
+            ctx(PROTECTED_ACTION),
+            actionPrivileges,
+            user,
+            indexNameExpressionResolver,
+            cs
+        );
 
         assertThat(presponse.allowed, is(false));
     }
@@ -618,7 +787,18 @@ public class SecurityIndexAccessEvaluatorTest {
         final Resolved resolved = createResolved(SECURITY_INDEX);
 
         // Action
-        evaluator.evaluate(request, task, PROTECTED_ACTION, resolved, presponse, securityRoles, user, indexNameExpressionResolver, cs);
+        evaluator.evaluate(
+            request,
+            task,
+            PROTECTED_ACTION,
+            resolved,
+            presponse,
+            ctx(PROTECTED_ACTION),
+            actionPrivileges,
+            user,
+            indexNameExpressionResolver,
+            cs
+        );
 
         verify(auditLog).logSecurityIndexAttempt(request, PROTECTED_ACTION, task);
         assertThat(presponse.allowed, is(false));
@@ -633,7 +813,18 @@ public class SecurityIndexAccessEvaluatorTest {
         final Resolved resolved = createResolved(SECURITY_INDEX);
 
         // Action
-        evaluator.evaluate(request, task, PROTECTED_ACTION, resolved, presponse, securityRoles, user, indexNameExpressionResolver, cs);
+        evaluator.evaluate(
+            request,
+            task,
+            PROTECTED_ACTION,
+            resolved,
+            presponse,
+            ctx(PROTECTED_ACTION),
+            actionPrivileges,
+            user,
+            indexNameExpressionResolver,
+            cs
+        );
 
         verify(auditLog).logSecurityIndexAttempt(request, PROTECTED_ACTION, task);
         assertThat(presponse.allowed, is(false));
@@ -668,7 +859,18 @@ public class SecurityIndexAccessEvaluatorTest {
         final Resolved resolved = createResolved(SECURITY_INDEX);
 
         // Action
-        evaluator.evaluate(request, task, action, resolved, presponse, securityRoles, user, indexNameExpressionResolver, cs);
+        evaluator.evaluate(
+            request,
+            task,
+            action,
+            resolved,
+            presponse,
+            ctx(action),
+            actionPrivileges,
+            user,
+            indexNameExpressionResolver,
+            cs
+        );
 
         verify(auditLog).logSecurityIndexAttempt(request, action, task);
         assertThat(presponse.allowed, is(false));

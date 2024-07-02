@@ -22,8 +22,6 @@ import org.opensearch.action.ActionRequest;
 import org.opensearch.action.admin.indices.segments.PitSegmentsRequest;
 import org.opensearch.action.search.CreatePitRequest;
 import org.opensearch.action.search.DeletePitRequest;
-import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.security.OpenSearchSecurityPlugin;
 import org.opensearch.security.resolver.IndexResolverReplacer;
@@ -39,11 +37,9 @@ public class PitPrivilegesEvaluator {
 
     public PrivilegesEvaluatorResponse evaluate(
         final ActionRequest request,
-        final ClusterService clusterService,
         final User user,
         final SecurityRoles securityRoles,
         final String action,
-        final IndexNameExpressionResolver resolver,
         final PrivilegesEvaluatorResponse presponse,
         final IndexResolverReplacer irr
     ) {
@@ -64,7 +60,7 @@ public class PitPrivilegesEvaluator {
         if (pitIds.size() == 1 && "_all".equals(pitIds.get(0))) {
             return presponse;
         } else {
-            return handlePitsAccess(pitIds, clusterService, user, securityRoles, action, resolver, presponse, irr);
+            return handlePitsAccess(pitIds, user, securityRoles, action, presponse, irr);
         }
     }
 
@@ -73,11 +69,9 @@ public class PitPrivilegesEvaluator {
      */
     private PrivilegesEvaluatorResponse handlePitsAccess(
         List<String> pitIds,
-        ClusterService clusterService,
         User user,
         SecurityRoles securityRoles,
         final String action,
-        IndexNameExpressionResolver resolver,
         PrivilegesEvaluatorResponse presponse,
         final IndexResolverReplacer irr
     ) {
@@ -101,7 +95,6 @@ public class PitPrivilegesEvaluator {
      */
     private Set<String> getPermittedIndices(
         Set<String> pitIndices,
-        ClusterService clusterService,
         User user,
         SecurityRoles securityRoles,
         final String action,
