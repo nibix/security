@@ -21,6 +21,7 @@ import org.junit.Test;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.search.SearchRequest;
+import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexAbstraction;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
@@ -630,14 +631,9 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     static PrivilegesEvaluator createPrivilegeEvaluator(int numberOfIndices, boolean doNotFailOnForbidden) {
-        SortedMap<String, IndexAbstraction> indicesLookup = testIndices(numberOfIndices);
-        Metadata metadata = mock(Metadata.class, withSettings().stubOnly());
-        when(metadata.getIndicesLookup()).thenReturn(indicesLookup);
-        when(metadata.getConcreteVisibleOpenIndices()).thenReturn(indicesLookup.keySet().toArray(new String[0]));
+        Metadata metadata = testIndices(numberOfIndices);
 
-        ClusterState clusterState = mock(ClusterState.class, withSettings().stubOnly());
-        when(clusterState.getMetadata()).thenReturn(metadata);
-        when(clusterState.metadata()).thenReturn(metadata);
+        ClusterState clusterState = ClusterState.builder(new ClusterName("test_cluster")).metadata(metadata).build();
 
         ClusterService clusterService = mock(ClusterService.class, withSettings().stubOnly());
         when(clusterService.state()).thenReturn(clusterState);
@@ -714,7 +710,7 @@ public class PrivilegesEvaluatorPerformanceTest {
         return user;
     }
 
-    static SortedMap<String, IndexAbstraction> testIndices(int count) {
+    static Metadata testIndices(int count) {
         MockIndexMetadataBuilder builder = new MockIndexMetadataBuilder();
         char[] letters = new char[] { 'a', 'b', 'c', 'd', 'e' };
         int indicesPerLetter = count / letters.length;
@@ -725,7 +721,7 @@ public class PrivilegesEvaluatorPerformanceTest {
             }
         }
 
-        return new TreeMap<>(builder.build());
+        return builder.build();
     }
 
 }
