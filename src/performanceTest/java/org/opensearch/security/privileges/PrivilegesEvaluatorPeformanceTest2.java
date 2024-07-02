@@ -498,22 +498,17 @@ public class PrivilegesEvaluatorPeformanceTest2 {
             }
 
             final void single(PrivilegesEvaluator subject) {
-                try {
-                    PrivilegesEvaluationContext context = subject.createContext(
-                            user(user),
+
+                    PrivilegesEvaluatorResponse response = subject.evaluate(user(user),
                             requestParameters.action,
                             requestParameters.getRequest(this.random),
                             null,
-                            null
-                    );
-                    PrivilegesEvaluatorResponse response = subject.evaluate(context);
+                            null);
 
                     if (!response.isAllowed()) {
                         throw new RuntimeException("Assertion failed: " + response);
                     }
-                } catch (PrivilegesEvaluatorResponse.NotAllowedException e) {
-                    throw new RuntimeException(e);
-                }
+
             }
         }
 
@@ -587,10 +582,7 @@ public class PrivilegesEvaluatorPeformanceTest2 {
                     indexResolverReplacer,
                     namedXContentRegistry
             );
-            privilegesEvaluator.updateConfiguration(
-                    TEST_SECURITY_CONFIG.geActionGroupsConfiguration(),
-                    TEST_SECURITY_CONFIG.getRolesConfiguration()
-            );
+
             privilegesEvaluator.onDynamicConfigModelChanged(dynamicConfigModel);
             privilegesEvaluator.onConfigModelChanged(configModel);
 
