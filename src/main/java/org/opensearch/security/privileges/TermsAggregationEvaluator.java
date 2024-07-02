@@ -27,12 +27,15 @@
 package org.opensearch.security.privileges;
 
 import java.util.Set;
+import java.util.function.Supplier;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.search.SearchRequest;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
@@ -64,7 +67,9 @@ public class TermsAggregationEvaluator {
         final ActionRequest request,
         User user,
         SecurityRoles securityRoles,
-        PrivilegesEvaluatorResponse presponse
+        PrivilegesEvaluatorResponse presponse,
+        IndexNameExpressionResolver resolver,
+        Supplier<ClusterState> cs
     ) {
         try {
             if (request instanceof SearchRequest) {
@@ -85,7 +90,9 @@ public class TermsAggregationEvaluator {
                             final Set<String> allPermittedIndices = securityRoles.getAllPermittedIndicesForDashboards(
                                 resolved,
                                 user,
-                                READ_ACTIONS
+                                READ_ACTIONS,
+                                    resolver,
+                                    cs
                             );
                             if (allPermittedIndices == null || allPermittedIndices.isEmpty()) {
                                 sr.source().query(NONE_QUERY);

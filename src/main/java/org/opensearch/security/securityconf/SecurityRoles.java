@@ -28,7 +28,9 @@
 package org.opensearch.security.securityconf;
 
 import java.util.Set;
+import java.util.function.Supplier;
 
+import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
@@ -50,7 +52,7 @@ public interface SecurityRoles {
         User user,
         String[] actions,
         IndexNameExpressionResolver resolver,
-        ClusterService cs
+        Supplier<ClusterState> cs
     );
 
     Set<String> getRoleNames();
@@ -60,7 +62,7 @@ public interface SecurityRoles {
         User user,
         String[] strings,
         IndexNameExpressionResolver resolver,
-        ClusterService clusterService
+        Supplier<ClusterState> cs
     );
 
     boolean impliesTypePermGlobal(
@@ -68,7 +70,7 @@ public interface SecurityRoles {
         User user,
         String[] allIndexPermsRequiredA,
         IndexNameExpressionResolver resolver,
-        ClusterService clusterService
+        Supplier<ClusterState> cs
     );
 
     boolean get(
@@ -76,14 +78,14 @@ public interface SecurityRoles {
         User user,
         String[] allIndexPermsRequiredA,
         IndexNameExpressionResolver resolver,
-        ClusterService clusterService
+        Supplier<ClusterState> cs
     );
 
     EvaluatedDlsFlsConfig getDlsFls(
         User user,
         boolean dfmEmptyOverwritesAll,
         IndexNameExpressionResolver resolver,
-        ClusterService clusterService,
+        Supplier<ClusterState> cs,
         NamedXContentRegistry namedXContentRegistry
     );
 
@@ -92,7 +94,7 @@ public interface SecurityRoles {
         User user,
         String[] actions,
         IndexNameExpressionResolver resolver,
-        ClusterService cs
+        Supplier<ClusterState> cs
     );
 
     SecurityRoles filter(Set<String> roles);

@@ -166,7 +166,7 @@ public class DlsFilterLevelActionHandler {
         this.threadContext = threadContext;
         this.resolver = resolver;
 
-        this.requiresIndexScoping = resolved.isLocalAll() || resolved.getAllIndicesResolved(clusterService, resolver).size() != 1;
+        this.requiresIndexScoping = resolved.isLocalAll() || resolved.getAllIndicesResolved(clusterService::state, resolver).size() != 1;
     }
 
     private boolean handle() {
@@ -473,7 +473,7 @@ public class DlsFilterLevelActionHandler {
 
         int queryCount = 0;
 
-        Set<String> indices = resolved.getAllIndicesResolved(clusterService, resolver);
+        Set<String> indices = resolved.getAllIndicesResolved(clusterService::state, resolver);
 
         for (String index : indices) {
             String dlsEval = SecurityUtils.evalMap(filterLevelQueries, index);

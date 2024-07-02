@@ -35,6 +35,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -49,6 +50,7 @@ import org.apache.logging.log4j.util.Strings;
 
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.action.support.IndicesOptions;
+import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.collect.Tuple;
@@ -279,7 +281,7 @@ public class ConfigModelV7 extends ConfigModel {
             User user,
             boolean dfmEmptyOverwritesAll,
             IndexNameExpressionResolver resolver,
-            ClusterService cs,
+            Supplier<ClusterState> cs,
             NamedXContentRegistry namedXContentRegistry
         ) {
 
@@ -384,7 +386,7 @@ public class ConfigModelV7 extends ConfigModel {
             User user,
             String[] actions,
             IndexNameExpressionResolver resolver,
-            ClusterService cs
+            Supplier<ClusterState> cs
         ) {
             Set<String> retVal = new HashSet<>();
             for (SecurityRole sr : roles) {
@@ -395,7 +397,7 @@ public class ConfigModelV7 extends ConfigModel {
         }
 
         // dnfof only
-        public Set<String> reduce(Resolved resolved, User user, String[] actions, IndexNameExpressionResolver resolver, ClusterService cs) {
+        public Set<String> reduce(Resolved resolved, User user, String[] actions, IndexNameExpressionResolver resolver, Supplier<ClusterState> cs) {
             Set<String> retVal = new HashSet<>();
             for (SecurityRole sr : roles) {
                 retVal.addAll(sr.getAllResolvedPermittedIndices(resolved, user, actions, resolver, cs, Function.identity()));
@@ -407,7 +409,7 @@ public class ConfigModelV7 extends ConfigModel {
         }
 
         // return true on success
-        public boolean get(Resolved resolved, User user, String[] actions, IndexNameExpressionResolver resolver, ClusterService cs) {
+        public boolean get(Resolved resolved, User user, String[] actions, IndexNameExpressionResolver resolver, Supplier<ClusterState> cs) {
             for (SecurityRole sr : roles) {
                 if (ConfigModelV7.impliesTypePerm(sr.getIpatterns(), resolved, user, actions, resolver, cs)) {
                     return true;
@@ -436,7 +438,7 @@ public class ConfigModelV7 extends ConfigModel {
             final User user,
             final String[] actions,
             final IndexNameExpressionResolver resolver,
-            final ClusterService cs
+            final Supplier<ClusterState> cs
         ) {
 
             final Set<String> indicesForRequest = new HashSet<>(resolved.getAllIndicesResolved(cs, resolver));
@@ -468,7 +470,7 @@ public class ConfigModelV7 extends ConfigModel {
             User user,
             String[] actions,
             IndexNameExpressionResolver resolver,
-            ClusterService cs
+            Supplier<ClusterState> cs
         ) {
             Set<IndexPattern> ipatterns = new HashSet<ConfigModelV7.IndexPattern>();
             roles.stream().forEach(p -> ipatterns.addAll(p.getIpatterns()));
@@ -554,7 +556,7 @@ public class ConfigModelV7 extends ConfigModel {
             User user,
             String[] actions,
             IndexNameExpressionResolver resolver,
-            ClusterService cs,
+            Supplier<ClusterState> cs,
             Function<WildcardMatcher, WildcardMatcher> matcherModification
         ) {
 
@@ -582,7 +584,7 @@ public class ConfigModelV7 extends ConfigModel {
 
                         // #557
                         // final String[] allIndices = resolver.concreteIndexNames(cs.state(), IndicesOptions.lenientExpandOpen(), "*");
-                        final String[] allIndices = cs.state().metadata().getConcreteAllOpenIndices();
+                        final String[] allIndices = cs.get().metadata().getConcreteAllOpenIndices();
                         Arrays.stream(allIndices).filter(permitted).forEach(res::add);
                     }
                     retVal.addAll(res);
@@ -760,19 +762,19 @@ public class ConfigModelV7 extends ConfigModel {
         }
 
         /** Finds the indices accessible to the user and resolves them to concrete names */
-        public Set<String> concreteIndexNames(final User user, final IndexNameExpressionResolver resolver, final ClusterService cs) {
+        public Set<String> concreteIndexNames(final User user, final IndexNameExpressionResolver resolver, final Supplier<ClusterState> cs) {
             return getResolvedIndexPattern(user, resolver, cs, false);
         }
 
         /** Finds the indices accessible to the user and attempts to resolve them to names, also includes any unresolved names */
-        public Set<String> attemptResolveIndexNames(final User user, final IndexNameExpressionResolver resolver, final ClusterService cs) {
+        public Set<String> attemptResolveIndexNames(final User user, final IndexNameExpressionResolver resolver, final Supplier<ClusterState> cs) {
             return getResolvedIndexPattern(user, resolver, cs, true);
         }
 
         public Set<String> getResolvedIndexPattern(
             final User user,
             final IndexNameExpressionResolver resolver,
-            final ClusterService cs,
+            final Supplier<ClusterState> cs,
             final boolean appendUnresolved
         ) {
             final String unresolved = getUnresolvedIndexPattern(user);
@@ -781,7 +783,7 @@ public class ConfigModelV7 extends ConfigModel {
             final WildcardMatcher matcher = WildcardMatcher.from(unresolved);
             boolean includeDataStreams = true;
             if (!(matcher instanceof WildcardMatcher.Exact)) {
-                final String[] aliasesAndDataStreamsForPermittedPattern = cs.state()
+                final String[] aliasesAndDataStreamsForPermittedPattern = cs.get()
                     .getMetadata()
                     .getIndicesLookup()
                     .entrySet()
@@ -792,7 +794,7 @@ public class ConfigModelV7 extends ConfigModel {
                     .toArray(String[]::new);
                 if (aliasesAndDataStreamsForPermittedPattern.length > 0) {
                     final String[] resolvedAliasesAndDataStreamIndices = resolver.concreteIndexNames(
-                        cs.state(),
+                        cs.get(),
                         IndicesOptions.lenientExpandOpen(),
                         includeDataStreams,
                         aliasesAndDataStreamsForPermittedPattern
@@ -803,7 +805,7 @@ public class ConfigModelV7 extends ConfigModel {
 
             if (Strings.isNotBlank(unresolved)) {
                 final String[] resolvedIndicesFromPattern = resolver.concreteIndexNames(
-                    cs.state(),
+                    cs.get(),
                     IndicesOptions.lenientExpandOpen(),
                     includeDataStreams,
                     unresolved
@@ -983,7 +985,7 @@ public class ConfigModelV7 extends ConfigModel {
         User user,
         String[] requestedActions,
         IndexNameExpressionResolver resolver,
-        ClusterService cs
+        Supplier<ClusterState> cs
     ) {
         Set<String> resolvedRequestedIndices = resolved.getAllIndices();
         IndexMatcherAndPermissions[] indexMatcherAndPermissions;

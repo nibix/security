@@ -17,11 +17,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.admin.indices.segments.PitSegmentsRequest;
 import org.opensearch.action.search.CreatePitRequest;
 import org.opensearch.action.search.DeletePitRequest;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.security.OpenSearchSecurityPlugin;
 import org.opensearch.security.resolver.IndexResolverReplacer;
@@ -41,7 +44,9 @@ public class PitPrivilegesEvaluator {
         final SecurityRoles securityRoles,
         final String action,
         final PrivilegesEvaluatorResponse presponse,
-        final IndexResolverReplacer irr
+        final IndexResolverReplacer irr,
+        IndexNameExpressionResolver resolver,
+        Supplier<ClusterState> cs
     ) {
 
         if (!(request instanceof DeletePitRequest || request instanceof PitSegmentsRequest)) {
@@ -60,7 +65,7 @@ public class PitPrivilegesEvaluator {
         if (pitIds.size() == 1 && "_all".equals(pitIds.get(0))) {
             return presponse;
         } else {
-            return handlePitsAccess(pitIds, user, securityRoles, action, presponse, irr);
+            return handlePitsAccess(pitIds, user, securityRoles, action, presponse, irr, resolver, cs);
         }
     }
 
@@ -73,7 +78,9 @@ public class PitPrivilegesEvaluator {
         SecurityRoles securityRoles,
         final String action,
         PrivilegesEvaluatorResponse presponse,
-        final IndexResolverReplacer irr
+        final IndexResolverReplacer irr,
+        IndexNameExpressionResolver resolver,
+        Supplier<ClusterState> cs
     ) {
         Map<String, String[]> pitToIndicesMap = OpenSearchSecurityPlugin.GuiceHolder.getPitService().getIndicesForPits(pitIds);
         Set<String> pitIndices = new HashSet<>();
@@ -81,7 +88,7 @@ public class PitPrivilegesEvaluator {
         for (String[] indices : pitToIndicesMap.values()) {
             pitIndices.addAll(Arrays.asList(indices));
         }
-        Set<String> allPermittedIndices = getPermittedIndices(pitIndices, clusterService, user, securityRoles, action, resolver, irr);
+        Set<String> allPermittedIndices = getPermittedIndices(pitIndices, user, securityRoles, action, resolver, irr, cs);
         // Only if user has access to all PIT's indices, allow operation, otherwise continue evaluation in PrivilegesEvaluator.
         if (allPermittedIndices.containsAll(pitIndices)) {
             presponse.allowed = true;
@@ -99,11 +106,12 @@ public class PitPrivilegesEvaluator {
         SecurityRoles securityRoles,
         final String action,
         IndexNameExpressionResolver resolver,
-        final IndexResolverReplacer irr
+        final IndexResolverReplacer irr,
+        Supplier<ClusterState> cs
     ) {
         String[] indicesArr = new String[pitIndices.size()];
         CreatePitRequest req = new CreatePitRequest(new TimeValue(1, TimeUnit.DAYS), true, pitIndices.toArray(indicesArr));
         final IndexResolverReplacer.Resolved pitResolved = irr.resolveRequest(req);
-        return securityRoles.reduce(pitResolved, user, new String[] { action }, resolver, clusterService);
+        return securityRoles.reduce(pitResolved, user, new String[] { action }, resolver, cs);
     }
 }

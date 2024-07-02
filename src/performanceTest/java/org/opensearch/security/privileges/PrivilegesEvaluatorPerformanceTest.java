@@ -671,7 +671,6 @@ public class PrivilegesEvaluatorPerformanceTest {
         );
 
         PrivilegesEvaluator privilegesEvaluator = new PrivilegesEvaluator(
-            null,
             () -> clusterState,
             threadContext,
             configurationRepository,

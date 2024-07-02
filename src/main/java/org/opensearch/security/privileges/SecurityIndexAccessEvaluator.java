@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -38,6 +39,8 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.RealtimeRequest;
 import org.opensearch.action.search.SearchRequest;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.security.auditlog.AuditLog;
 import org.opensearch.security.resolver.IndexResolverReplacer;
@@ -125,9 +128,11 @@ public class SecurityIndexAccessEvaluator {
         final Resolved requestedResolved,
         final PrivilegesEvaluatorResponse presponse,
         final SecurityRoles securityRoles,
-        final User user
+        final User user,
+        IndexNameExpressionResolver resolver,
+        Supplier<ClusterState> cs
     ) {
-        evaluateSystemIndicesAccess(action, requestedResolved, request, task, presponse, securityRoles, user, resolver, clusterService);
+        evaluateSystemIndicesAccess(action, requestedResolved, request, task, presponse, securityRoles, user, resolver, cs);
 
         if (requestedResolved.isLocalAll()
             || requestedResolved.getAllIndices().contains(securityIndex)
@@ -238,7 +243,9 @@ public class SecurityIndexAccessEvaluator {
         final Task task,
         final PrivilegesEvaluatorResponse presponse,
         SecurityRoles securityRoles,
-        final User user
+        final User user,
+        IndexNameExpressionResolver resolver,
+        Supplier<ClusterState> cs
     ) {
         // Perform access check is system index permissions are enabled
         boolean containsSystemIndex = requestContainsAnySystemIndices(requestedResolved);
@@ -284,7 +291,7 @@ public class SecurityIndexAccessEvaluator {
                     user,
                     new String[] { ConfigConstants.SYSTEM_INDEX_PERMISSION },
                     resolver,
-                    clusterService
+                    cs
                 )) {
                     auditLog.logSecurityIndexAttempt(request, action, task);
                     if (log.isInfoEnabled()) {

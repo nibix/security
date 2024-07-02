@@ -1121,7 +1121,6 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
         // DLS-FLS is enabled if not client and not disabled and not SSL only.
         final boolean dlsFlsEnabled = !SSLConfig.isSslOnlyMode();
         evaluator = new PrivilegesEvaluator(
-            clusterService,
             clusterService::state,
             threadPool.getThreadContext(),
             cr,

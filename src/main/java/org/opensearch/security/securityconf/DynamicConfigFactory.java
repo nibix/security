@@ -296,13 +296,7 @@ public class DynamicConfigFactory implements Initializable, ConfigurationChangeL
             // rebuild v6 Models
             dcm = new DynamicConfigModelV6(getConfigV6(config), opensearchSettings, configPath, iab);
             ium = new InternalUsersModelV6((SecurityDynamicConfiguration<InternalUserV6>) internalusers);
-            cm = new ConfigModelV6(
-                (SecurityDynamicConfiguration<RoleV6>) roles,
-                (SecurityDynamicConfiguration<ActionGroupsV6>) actionGroups,
-                (SecurityDynamicConfiguration<RoleMappingsV6>) rolesmapping,
-                dcm,
-                opensearchSettings
-            );
+            cm = null;
 
         }
 

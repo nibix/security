@@ -73,6 +73,7 @@ import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.termvectors.MultiTermVectorsAction;
 import org.opensearch.action.update.UpdateAction;
 import org.opensearch.cluster.ClusterChangedEvent;
+import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.ClusterStateListener;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -148,7 +149,6 @@ public class PrivilegesEvaluator {
     private final NamedXContentRegistry namedXContentRegistry;
 
     public PrivilegesEvaluator(
-        final ClusterService clusterService,
         Supplier<ClusterState> clusterStateSupplier,
         final ThreadContext threadContext,
         final ConfigurationRepository configurationRepository,
@@ -329,7 +329,8 @@ public class PrivilegesEvaluator {
             presponse,
             securityRoles,
             user,
-            resolver
+            resolver,
+                clusterStateSupplier
         ).isComplete()) {
             return presponse;
         }
@@ -340,7 +341,7 @@ public class PrivilegesEvaluator {
         }
 
         // check access for point in time requests
-        if (pitPrivilegesEvaluator.evaluate(request, clusterService, user, securityRoles, action0, resolver, presponse, irr).isComplete()) {
+        if (pitPrivilegesEvaluator.evaluate(request, user, securityRoles, action0, presponse, irr, resolver, clusterStateSupplier).isComplete()) {
             return presponse;
         }
 
@@ -355,7 +356,7 @@ public class PrivilegesEvaluator {
             user,
             dfmEmptyOverwritesAll,
             resolver,
-            clusterService,
+            clusterStateSupplier,
             namedXContentRegistry
         );
 
@@ -428,7 +429,7 @@ public class PrivilegesEvaluator {
         }
 
         // term aggregations
-        if (termsAggregationEvaluator.evaluate(requestedResolved, request, clusterService, user, securityRoles, resolver, presponse)
+        if (termsAggregationEvaluator.evaluate(requestedResolved, request, user, securityRoles, presponse, resolver, clusterStateSupplier)
             .isComplete()) {
             return presponse;
         }
@@ -484,7 +485,7 @@ public class PrivilegesEvaluator {
                 return presponse;
             }
 
-            Set<String> reduced = securityRoles.reduce(requestedResolved, user, allIndexPermsRequiredA, resolver, clusterService);
+            Set<String> reduced = securityRoles.reduce(requestedResolved, user, allIndexPermsRequiredA, resolver, clusterStateSupplier);
 
             if (reduced.isEmpty()) {
                 if (dcm.isDnfofForEmptyResultsEnabled() && request instanceof IndicesRequest.Replaceable) {
@@ -522,9 +523,9 @@ public class PrivilegesEvaluator {
         }
 
         if (dcm.isMultiRolespanEnabled()) {
-            permGiven = securityRoles.impliesTypePermGlobal(requestedResolved, user, allIndexPermsRequiredA, resolver, clusterService);
+            permGiven = securityRoles.impliesTypePermGlobal(requestedResolved, user, allIndexPermsRequiredA, resolver, clusterStateSupplier);
         } else {
-            permGiven = securityRoles.get(requestedResolved, user, allIndexPermsRequiredA, resolver, clusterService);
+            permGiven = securityRoles.get(requestedResolved, user, allIndexPermsRequiredA, resolver, clusterStateSupplier);
 
         }
 
