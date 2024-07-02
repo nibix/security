@@ -120,7 +120,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     final static PrivilegesEvaluator privilegesEvaluator10000dnfof = createPrivilegeEvaluator(10000, true);
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_fullPrivileges_10indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10.evaluate(user(FULL_PRIVILEGES_TEST_USER),
@@ -132,7 +132,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_fullPrivileges_100indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator100.evaluate(user(FULL_PRIVILEGES_TEST_USER),
@@ -144,7 +144,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_fullPrivileges_1000indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator1000.evaluate(user(FULL_PRIVILEGES_TEST_USER),
@@ -156,7 +156,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_fullPrivileges_10000indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10000.evaluate(user(FULL_PRIVILEGES_TEST_USER),
@@ -168,7 +168,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivileges_10indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10.evaluate(user(INDEX_A_READ_TEST_USER),
@@ -180,7 +180,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivileges_100indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator100.evaluate(user(INDEX_A_READ_TEST_USER),
@@ -192,7 +192,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivileges_1000indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator1000.evaluate(user(INDEX_A_READ_TEST_USER),
@@ -204,7 +204,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivileges_10000indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10000.evaluate(user(INDEX_A_READ_TEST_USER),
@@ -216,7 +216,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithRegex_10indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10.evaluate(user(INDEX_A_READ_REGEX_TEST_USER),
@@ -228,7 +228,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithRegex_100indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator100.evaluate(user(INDEX_A_READ_REGEX_TEST_USER),
@@ -240,7 +240,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithRegex_1000indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator1000.evaluate(user(INDEX_A_READ_REGEX_TEST_USER),
@@ -252,7 +252,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithRegex_10000indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10000.evaluate(user(INDEX_A_READ_REGEX_TEST_USER),
@@ -264,7 +264,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithUserAttr_10indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10.evaluate(user(INDEX_A_READ_ATTR_TEST_USER),
@@ -276,7 +276,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithUserAttr_100indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator100.evaluate(user(INDEX_A_READ_ATTR_TEST_USER),
@@ -288,7 +288,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithUserAttr_1000indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator1000.evaluate(user(INDEX_A_READ_ATTR_TEST_USER),
@@ -300,7 +300,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithUserAttr_10000indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10000.evaluate(user(INDEX_A_READ_ATTR_TEST_USER),
@@ -312,7 +312,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithUserAttrAndRegex_10indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10.evaluate(user(INDEX_A_READ_ATTR_REGEX_TEST_USER),
@@ -324,7 +324,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithUserAttrAndRegex_100indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator100.evaluate(user(INDEX_A_READ_ATTR_REGEX_TEST_USER),
@@ -336,7 +336,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithUserAttrAndRegex_1000indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator1000.evaluate(user(INDEX_A_READ_ATTR_REGEX_TEST_USER),
@@ -348,7 +348,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithUserAttrAndRegex_10000indices() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10000.evaluate(user(INDEX_A_READ_ATTR_REGEX_TEST_USER),
@@ -360,7 +360,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_fullPrivileges_10indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10dnfof.evaluate(user(FULL_PRIVILEGES_TEST_USER),
@@ -372,7 +372,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_fullPrivileges_100indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator100dnfof.evaluate(user(FULL_PRIVILEGES_TEST_USER),
@@ -384,7 +384,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_fullPrivileges_1000indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator1000dnfof.evaluate(user(FULL_PRIVILEGES_TEST_USER),
@@ -396,7 +396,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_fullPrivileges_10000indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10000dnfof.evaluate(user(FULL_PRIVILEGES_TEST_USER),
@@ -408,7 +408,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivileges_10indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10dnfof.evaluate(user(INDEX_A_READ_TEST_USER),
@@ -420,7 +420,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivileges_100indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator100dnfof.evaluate(user(INDEX_A_READ_TEST_USER),
@@ -432,7 +432,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivileges_1000indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator1000dnfof.evaluate(user(INDEX_A_READ_TEST_USER),
@@ -444,7 +444,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivileges_10000indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10000dnfof.evaluate(user(INDEX_A_READ_TEST_USER),
@@ -456,7 +456,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithRegex_10indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10dnfof.evaluate(user(INDEX_A_READ_REGEX_TEST_USER),
@@ -468,7 +468,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithRegex_100indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator100dnfof.evaluate(user(INDEX_A_READ_REGEX_TEST_USER),
@@ -480,7 +480,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithRegex_1000indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator1000dnfof.evaluate(user(INDEX_A_READ_REGEX_TEST_USER),
@@ -492,7 +492,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithRegex_10000indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10000dnfof.evaluate(user(INDEX_A_READ_REGEX_TEST_USER),
@@ -504,7 +504,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithUserAttr_10indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10dnfof.evaluate(
@@ -518,7 +518,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithUserAttr_100indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator100dnfof.evaluate(
@@ -532,7 +532,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithUserAttr_1000indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator1000dnfof.evaluate(
@@ -546,7 +546,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithUserAttr_10000indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10000dnfof.evaluate(
@@ -560,7 +560,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithUserAttrAndRegex_10indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10dnfof.evaluate(
@@ -574,7 +574,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithUserAttrAndRegex_100indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator100dnfof.evaluate(
@@ -588,7 +588,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithUserAttrAndRegex_1000indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator1000dnfof.evaluate(
@@ -602,7 +602,7 @@ public class PrivilegesEvaluatorPerformanceTest {
     }
 
     @Test
-    @JUnitPerfTest(threads = 50, durationMs = 125_000, warmUpMs = 10_000)
+    @JUnitPerfTest(threads = 50, durationMs = 60_000, warmUpMs = 10_000)
     @JUnitPerfTestRequirement(allowedErrorPercentage = 0.5f)
     public void evaluate_limitedPrivilegesWithUserAttrAndRegex_10000indices_dnfof() throws Exception {
         PrivilegesEvaluatorResponse response = privilegesEvaluator10000dnfof.evaluate(
