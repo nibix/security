@@ -33,8 +33,6 @@ import org.apache.logging.log4j.Logger;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.search.SearchRequest;
-import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
@@ -67,10 +65,8 @@ public class TermsAggregationEvaluator {
     public PrivilegesEvaluatorResponse evaluate(
         final Resolved resolved,
         final ActionRequest request,
-        ClusterService clusterService,
         PrivilegesEvaluationContext context,
         ActionPrivileges actionPrivileges,
-        IndexNameExpressionResolver resolver,
         PrivilegesEvaluatorResponse presponse
     ) {
         try {

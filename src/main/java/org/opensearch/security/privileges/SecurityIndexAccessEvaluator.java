@@ -39,8 +39,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.RealtimeRequest;
 import org.opensearch.action.search.SearchRequest;
-import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.security.auditlog.AuditLog;
 import org.opensearch.security.resolver.IndexResolverReplacer;
@@ -129,22 +127,9 @@ public class SecurityIndexAccessEvaluator {
         final PrivilegesEvaluatorResponse presponse,
         final PrivilegesEvaluationContext context,
         final ActionPrivileges actionPrivileges,
-        final User user,
-        final IndexNameExpressionResolver resolver,
-        final ClusterService clusterService
+        final User user
     ) {
-        evaluateSystemIndicesAccess(
-            action,
-            requestedResolved,
-            request,
-            task,
-            presponse,
-            context,
-            actionPrivileges,
-            user,
-            resolver,
-            clusterService
-        );
+        evaluateSystemIndicesAccess(action, requestedResolved, request, task, presponse, context, actionPrivileges, user);
 
         if (requestedResolved.isLocalAll()
             || requestedResolved.getAllIndices().contains(securityIndex)
@@ -248,8 +233,6 @@ public class SecurityIndexAccessEvaluator {
      * @param context conveys information about user and mapped roles, etc.
      * @param actionPrivileges the up-to-date ActionPrivileges instance
      * @param user this user's permissions will be looked up
-     * @param resolver the index expression resolver
-     * @param clusterService required to fetch cluster state metadata
      */
     private void evaluateSystemIndicesAccess(
         final String action,
@@ -259,9 +242,7 @@ public class SecurityIndexAccessEvaluator {
         final PrivilegesEvaluatorResponse presponse,
         final PrivilegesEvaluationContext context,
         final ActionPrivileges actionPrivileges,
-        final User user,
-        final IndexNameExpressionResolver resolver,
-        final ClusterService clusterService
+        final User user
     ) {
         // Perform access check is system index permissions are enabled
         boolean containsSystemIndex = requestContainsAnySystemIndices(requestedResolved);
