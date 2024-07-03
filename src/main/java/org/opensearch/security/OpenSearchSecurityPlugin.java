@@ -1068,7 +1068,7 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
         this.salt = Salt.from(settings);
 
         final IndexNameExpressionResolver resolver = new IndexNameExpressionResolver(threadPool.getThreadContext());
-        irr = new IndexResolverReplacer(resolver, clusterService::state, cih);
+        irr = new IndexResolverReplacer(clusterService::state, cih, threadPool.getThreadContext());
 
         final String DEFAULT_INTERCLUSTER_REQUEST_EVALUATOR_CLASS = DefaultInterClusterRequestEvaluator.class.getName();
         InterClusterRequestEvaluator interClusterRequestEvaluator = new DefaultInterClusterRequestEvaluator(settings);

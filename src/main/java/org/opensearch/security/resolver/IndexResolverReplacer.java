@@ -81,9 +81,9 @@ import org.opensearch.action.termvectors.TermVectorsRequest;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexAbstraction;
-import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.util.IndexUtils;
+import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.core.index.Index;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.reindex.ReindexRequest;
@@ -110,11 +110,11 @@ public class IndexResolverReplacer {
     private volatile boolean respectRequestIndicesOptions = false;
 
     public IndexResolverReplacer(
-        IndexNameExpressionResolver resolver,
         Supplier<ClusterState> clusterStateSupplier,
-        ClusterInfoHolder clusterInfoHolder
+        ClusterInfoHolder clusterInfoHolder,
+        ThreadContext threadContext
     ) {
-        this.resolver = resolver;
+        this.resolver = new IndexNameExpressionResolver(threadContext);
         this.clusterStateSupplier = clusterStateSupplier;
         this.clusterInfoHolder = clusterInfoHolder;
     }
@@ -167,6 +167,8 @@ public class IndexResolverReplacer {
         // the same index more than once while processing bulk requests
         private final Set<AlreadyResolvedKey> alreadyResolved;
         private final String name;
+        private final static IndexNameExpressionResolver.DateMathExpressionResolver DATE_MATH_EXPRESSION_RESOLVER = new IndexNameExpressionResolver.DateMathExpressionResolver();
+        private final static IndexNameExpressionResolver.WildcardExpressionResolver WILDCARD_EXPRESSION_RESOLVER = new IndexNameExpressionResolver.WildcardExpressionResolver();
 
         private final class AlreadyResolvedKey {
 
@@ -298,41 +300,13 @@ public class IndexResolverReplacer {
 
             else {
                 final ClusterState state = clusterStateSupplier.get();
-                final Set<String> dateResolvedLocalRequestedPatterns = localRequestedPatterns.stream()
-                    .map(resolver::resolveDateMathExpression)
-                    .collect(Collectors.toSet());
-                final WildcardMatcher dateResolvedMatcher = WildcardMatcher.from(dateResolvedLocalRequestedPatterns);
-                // fill matchingAliases
-                final Map<String, IndexAbstraction> lookup = state.metadata().getIndicesLookup();
-                matchingAliases = lookup.entrySet()
-                    .stream()
-                    .filter(e -> e.getValue().getType() == ALIAS)
-                    .map(Map.Entry::getKey)
-                    .filter(dateResolvedMatcher)
-                    .collect(Collectors.toSet());
 
-                final boolean isDebugEnabled = log.isDebugEnabled();
-                try {
-                    matchingAllIndices = Arrays.asList(
-                        resolver.concreteIndexNames(state, indicesOptions, localRequestedPatterns.toArray(new String[0]))
-                    );
-                    matchingDataStreams = resolver.dataStreamNames(state, indicesOptions, localRequestedPatterns.toArray(new String[0]));
+                IndexNameExpressionResolver.Context context = new IndexNameExpressionResolver.Context(state, indicesOptions, resolver.isSystemIndexAccessAllowed());
 
-                    if (isDebugEnabled) {
-                        log.debug(
-                            "Resolved pattern {} to indices: {} and data-streams: {}",
-                            localRequestedPatterns,
-                            matchingAllIndices,
-                            matchingDataStreams
-                        );
-                    }
-                } catch (IndexNotFoundException e1) {
-                    if (isDebugEnabled) {
-                        log.debug("No such indices for pattern {}, use raw value", localRequestedPatterns);
-                    }
+                matchingAllIndices = WILDCARD_EXPRESSION_RESOLVER.resolve(context, DATE_MATH_EXPRESSION_RESOLVER.resolve(context, localRequestedPatterns));
+                matchingDataStreams = Collections.emptyList();
+                matchingAliases = Collections.emptyList();
 
-                    matchingAllIndices = dateResolvedLocalRequestedPatterns;
-                }
             }
 
             if (matchingDataStreams == null || matchingDataStreams.size() == 0) {
@@ -493,11 +467,11 @@ public class IndexResolverReplacer {
             return allIndices;
         }
 
-        public Set<String> getAllIndicesResolved(ClusterService clusterService, IndexNameExpressionResolver resolver) {
+        public Set<String> getAllIndicesResolved(ClusterService clusterService, org.opensearch.cluster.metadata.IndexNameExpressionResolver resolver) {
             return getAllIndicesResolved(clusterService::state, resolver);
         }
 
-        public Set<String> getAllIndicesResolved(Supplier<ClusterState> clusterStateSupplier, IndexNameExpressionResolver resolver) {
+        public Set<String> getAllIndicesResolved(Supplier<ClusterState> clusterStateSupplier, org.opensearch.cluster.metadata.IndexNameExpressionResolver resolver) {
             if (isLocalAll) {
                 return new HashSet<>(Arrays.asList(resolver.concreteIndexNames(clusterStateSupplier.get(), indicesOptions, "*")));
             } else {
