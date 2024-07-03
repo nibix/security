@@ -548,7 +548,7 @@ public class PrivilegesEvaluatorPeformanceTest2 {
                 }
             };
 
-            IndexResolverReplacer indexResolverReplacer = new IndexResolverReplacer(() -> clusterState, null, threadContext);
+            IndexResolverReplacer indexResolverReplacer = new IndexResolverReplacer(indexNameExpressionResolver, () -> clusterState, null);
             NamedXContentRegistry namedXContentRegistry = NamedXContentRegistry.EMPTY;
 
             DynamicConfigModelV7 dynamicConfigModel = new DynamicConfigModelV7(
@@ -570,7 +570,6 @@ public class PrivilegesEvaluatorPeformanceTest2 {
             );
 
             PrivilegesEvaluator privilegesEvaluator = new PrivilegesEvaluator(
-                    null,
                     () -> clusterState,
                     threadContext,
                     configurationRepository,
@@ -580,6 +579,7 @@ public class PrivilegesEvaluatorPeformanceTest2 {
                     privilegesInterceptor,
                     null,
                     indexResolverReplacer,
+                    false,
                     namedXContentRegistry
             );
 
