@@ -31,6 +31,7 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.search.internal.SearchContext;
 import org.opensearch.search.query.QuerySearchResult;
 import org.opensearch.security.privileges.PrivilegesEvaluationContext;
+import org.opensearch.security.privileges.dlsfls.DlsFlsProcessedConfig;
 import org.opensearch.threadpool.ThreadPool;
 
 public interface DlsFlsRequestValve {
@@ -40,6 +41,8 @@ public interface DlsFlsRequestValve {
     void handleSearchContext(SearchContext context, ThreadPool threadPool, NamedXContentRegistry namedXContentRegistry);
 
     void onQueryPhase(QuerySearchResult queryResult);
+
+    DlsFlsProcessedConfig getCurrentConfig();
 
     public static class NoopDlsFlsRequestValve implements DlsFlsRequestValve {
 
@@ -56,6 +59,11 @@ public interface DlsFlsRequestValve {
         @Override
         public void onQueryPhase(QuerySearchResult queryResult) {
 
+        }
+
+        @Override
+        public DlsFlsProcessedConfig getCurrentConfig() {
+            return null;
         }
     }
 

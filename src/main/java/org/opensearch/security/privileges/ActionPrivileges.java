@@ -23,7 +23,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.commons.collections4.CollectionUtils;
@@ -967,7 +966,7 @@ public class ActionPrivileges {
                             continue;
                         }
 
-                        WildcardMatcher indexMatcher = IndexPattern.from(indexPermissions.getIndex_patterns()).pattern;
+                        WildcardMatcher indexMatcher = IndexPattern.from(indexPermissions.getIndex_patterns()).getStaticPattern();
 
                         if (indexMatcher == WildcardMatcher.NONE) {
                             // The pattern is likely blank because there are only templated patterns.
@@ -1156,151 +1155,4 @@ public class ActionPrivileges {
         }
     }
 
-    /**
-     * Aggregates index patterns defined in roles and segments them into patterns using template expressions ("index_${user.name}"),
-     * patterns using date math and plain patterns. This segmentation is needed because only plain patterns can be used
-     * to pre-compute privilege maps. The other types of patterns need to be evaluated "live" during the actual request.
-     */
-    static class IndexPattern {
-
-        private final WildcardMatcher pattern;
-        private final ImmutableList<String> patternTemplates;
-        private final ImmutableList<String> dateMathExpressions;
-
-        IndexPattern(WildcardMatcher pattern, ImmutableList<String> patternTemplates, ImmutableList<String> dateMathExpressions) {
-            this.pattern = pattern;
-            this.patternTemplates = patternTemplates;
-            this.dateMathExpressions = dateMathExpressions;
-        }
-
-        public boolean matches(String index, PrivilegesEvaluationContext context, Map<String, IndexAbstraction> indexMetadata)
-            throws PrivilegesEvaluationException {
-            if (pattern.test(index)) {
-                return true;
-            }
-
-            if (!patternTemplates.isEmpty()) {
-                for (String patternTemplate : this.patternTemplates) {
-                    try {
-                        WildcardMatcher matcher = context.getRenderedMatcher(patternTemplate);
-
-                        if (matcher.test(index)) {
-                            return true;
-                        }
-                    } catch (ExpressionEvaluationException e) {
-                        throw new PrivilegesEvaluationException("Error while evaluating dynamic index pattern: " + patternTemplate, e);
-                    }
-                }
-            }
-
-            if (!dateMathExpressions.isEmpty()) {
-                IndexNameExpressionResolver indexNameExpressionResolver = context.getIndexNameExpressionResolver();
-
-                // Note: The use of date math expressions in privileges is a bit odd, as it only provides a very limited
-                // solution for the potential user case. A different approach might be nice.
-
-                for (String dateMathExpression : this.dateMathExpressions) {
-                    try {
-                        String resolvedExpression = indexNameExpressionResolver.resolveDateMathExpression(dateMathExpression);
-
-                        if (!containsPlaceholder(resolvedExpression)) {
-                            WildcardMatcher matcher = WildcardMatcher.from(resolvedExpression);
-
-                            if (matcher.test(index)) {
-                                return true;
-                            }
-                        } else {
-                            WildcardMatcher matcher = context.getRenderedMatcher(resolvedExpression);
-
-                            if (matcher.test(index)) {
-                                return true;
-                            }
-                        }
-                    } catch (Exception e) {
-                        throw new PrivilegesEvaluationException("Error while evaluating date math expression: " + dateMathExpression, e);
-                    }
-                }
-            }
-
-            IndexAbstraction indexAbstraction = indexMetadata.get(index);
-
-            if (indexAbstraction instanceof IndexAbstraction.Index) {
-                // Check for the privilege for aliases or data streams containing this index
-
-                if (indexAbstraction.getParentDataStream() != null) {
-                    if (matches(indexAbstraction.getParentDataStream().getName(), context, indexMetadata)) {
-                        return true;
-                    }
-                }
-
-                // Retrieve aliases: The use of getWriteIndex() is a bit messy, but it is the only way to access
-                // alias metadata from here.
-                for (String alias : indexAbstraction.getWriteIndex().getAliases().keySet()) {
-                    if (matches(alias, context, indexMetadata)) {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        @Override
-        public String toString() {
-            if (pattern != null && patternTemplates != null && patternTemplates.size() != 0) {
-                return pattern + " " + patternTemplates;
-            } else if (pattern != null) {
-                return pattern.toString();
-            } else if (patternTemplates != null) {
-                return patternTemplates.toString();
-            } else {
-                return "-/-";
-            }
-        }
-
-        static class Builder {
-            private List<WildcardMatcher> constantPatterns = new ArrayList<>();
-            private List<String> patternTemplates = new ArrayList<>();
-            private List<String> dateMathExpressions = new ArrayList<>();
-            private int initializationErrors = 0;
-
-            void add(List<String> source) {
-                for (int i = 0; i < source.size(); i++) {
-                    try {
-                        String indexPattern = source.get(i);
-
-                        if (indexPattern.startsWith("<") && indexPattern.endsWith(">")) {
-                            this.dateMathExpressions.add(indexPattern);
-                        } else if (!containsPlaceholder(indexPattern)) {
-                            this.constantPatterns.add(WildcardMatcher.from(indexPattern));
-                        } else {
-                            this.patternTemplates.add(indexPattern);
-                        }
-                    } catch (Exception e) {
-                        // This usually happens when the index pattern defines an unparseable regular expression
-                        log.error("Error while creating index pattern for {}", source, e);
-                        this.initializationErrors++;
-                    }
-                }
-            }
-
-            IndexPattern build() {
-                return new IndexPattern(
-                    WildcardMatcher.from(constantPatterns),
-                    ImmutableList.copyOf(patternTemplates),
-                    ImmutableList.copyOf(dateMathExpressions)
-                );
-            }
-        }
-
-        static boolean containsPlaceholder(String indexPattern) {
-            return indexPattern.indexOf("${") != -1;
-        }
-
-        static IndexPattern from(List<String> source) {
-            Builder builder = new Builder();
-            builder.add(source);
-            return builder.build();
-        }
-    }
 }

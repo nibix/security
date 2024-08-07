@@ -172,6 +172,7 @@ import org.opensearch.security.privileges.ActionPrivileges;
 import org.opensearch.security.privileges.PrivilegesEvaluator;
 import org.opensearch.security.privileges.PrivilegesInterceptor;
 import org.opensearch.security.privileges.RestLayerPrivilegesEvaluator;
+import org.opensearch.security.privileges.dlsfls.DlsFlsBaseContext;
 import org.opensearch.security.resolver.IndexResolverReplacer;
 import org.opensearch.security.rest.DashboardsInfoAction;
 import org.opensearch.security.rest.SecurityConfigUpdateAction;
@@ -180,6 +181,9 @@ import org.opensearch.security.rest.SecurityInfoAction;
 import org.opensearch.security.rest.SecurityWhoAmIAction;
 import org.opensearch.security.rest.TenantInfoAction;
 import org.opensearch.security.securityconf.DynamicConfigFactory;
+import org.opensearch.security.securityconf.impl.CType;
+import org.opensearch.security.securityconf.impl.SecurityDynamicConfiguration;
+import org.opensearch.security.securityconf.impl.v7.RoleV7;
 import org.opensearch.security.setting.OpensearchDynamicSetting;
 import org.opensearch.security.setting.TransportPassiveAuthSetting;
 import org.opensearch.security.ssl.ExternalSecurityKeyStore;
@@ -266,9 +270,9 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
     private volatile IndexResolverReplacer irr;
     private final AtomicReference<NamedXContentRegistry> namedXContentRegistry = new AtomicReference<>(NamedXContentRegistry.EMPTY);;
     private volatile DlsFlsRequestValve dlsFlsValve = null;
-    private volatile Salt salt;
     private volatile OpensearchDynamicSetting<Boolean> transportPassiveAuthSetting;
     private volatile PasswordHasher passwordHasher;
+    private volatile DlsFlsBaseContext dlsFlsBaseContext;
 
     public static boolean isActionTraceEnabled() {
 
@@ -705,7 +709,8 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
                     auditLog,
                     ciol,
                     evaluator,
-                    salt
+                        dlsFlsValve::getCurrentConfig,
+                        dlsFlsBaseContext
                 )
             );
             indexModule.forceQueryCacheProvider((indexSettings, nodeCache) -> new QueryCache() {
@@ -1065,7 +1070,6 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
 
         final ClusterInfoHolder cih = new ClusterInfoHolder(this.cs.getClusterName().value());
         this.cs.addListener(cih);
-        this.salt = Salt.from(settings);
 
         final IndexNameExpressionResolver resolver = new IndexNameExpressionResolver(threadPool.getThreadContext());
         irr = new IndexResolverReplacer(resolver, clusterService::state, cih);
@@ -1086,18 +1090,9 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
 
         namedXContentRegistry.set(xContentRegistry);
         if (SSLConfig.isSslOnlyMode()) {
-            dlsFlsValve = new DlsFlsRequestValve.NoopDlsFlsRequestValve();
             auditLog = new NullAuditLog();
             privilegesInterceptor = new PrivilegesInterceptor(resolver, clusterService, localClient, threadPool);
         } else {
-            dlsFlsValve = new DlsFlsValveImpl(
-                settings,
-                localClient,
-                clusterService,
-                resolver,
-                xContentRegistry,
-                threadPool.getThreadContext()
-            );
             auditLog = new AuditLogImpl(settings, configPath, localClient, threadPool, resolver, clusterService, environment);
             privilegesInterceptor = new PrivilegesInterceptorImpl(resolver, clusterService, localClient, threadPool);
         }
@@ -1133,6 +1128,25 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
             namedXContentRegistry.get()
         );
 
+        dlsFlsBaseContext = new DlsFlsBaseContext(evaluator, threadPool.getThreadContext());
+
+        if (SSLConfig.isSslOnlyMode()) {
+            dlsFlsValve = new DlsFlsRequestValve.NoopDlsFlsRequestValve();
+        } else {
+            dlsFlsValve = new DlsFlsValveImpl(
+                    settings,
+                    localClient,
+                    clusterService,
+                    resolver,
+                    xContentRegistry,
+                    threadPool.getThreadContext(),
+                    dlsFlsBaseContext
+            );
+            cr.subscribeOnChange(configMap -> {
+                ((DlsFlsValveImpl) dlsFlsValve).updateConfiguration(cr.getConfiguration(CType.ROLES));
+            });
+        }
+
         sf = new SecurityFilter(settings, evaluator, adminDns, dlsFlsValve, auditLog, threadPool, cs, compatConfig, irr, xffResolver);
 
         final String principalExtractorClass = settings.get(SSLConfigConstants.SECURITY_SSL_TRANSPORT_PRINCIPAL_EXTRACTOR_CLASS, null);
@@ -1166,9 +1180,6 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
         if (!(auditLog instanceof NullAuditLog)) {
             // Don't register if advanced modules is disabled in which case auditlog is instance of NullAuditLog
             dcf.registerDCFListener(auditLog);
-        }
-        if (dlsFlsValve instanceof DlsFlsValveImpl) {
-            dcf.registerDCFListener(dlsFlsValve);
         }
 
         cr.setDynamicConfigFactory(dcf);
