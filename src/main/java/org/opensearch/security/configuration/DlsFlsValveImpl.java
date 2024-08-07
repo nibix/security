@@ -61,7 +61,6 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.ParsedQuery;
-import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregatorFactories;
@@ -79,10 +78,8 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.internal.SearchContext;
 import org.opensearch.search.query.QuerySearchResult;
 import org.opensearch.security.OpenSearchSecurityPlugin;
-import org.opensearch.security.privileges.ActionPrivileges;
 import org.opensearch.security.privileges.PrivilegesEvaluationContext;
 import org.opensearch.security.privileges.PrivilegesEvaluationException;
-import org.opensearch.security.privileges.PrivilegesEvaluator;
 import org.opensearch.security.privileges.dlsfls.DlsFlsBaseContext;
 import org.opensearch.security.privileges.dlsfls.DlsFlsProcessedConfig;
 import org.opensearch.security.privileges.dlsfls.DlsRestriction;
@@ -90,21 +87,12 @@ import org.opensearch.security.privileges.dlsfls.FieldMasking;
 import org.opensearch.security.privileges.dlsfls.FieldPrivileges;
 import org.opensearch.security.privileges.dlsfls.IndexToRuleMap;
 import org.opensearch.security.resolver.IndexResolverReplacer;
-import org.opensearch.security.securityconf.ConfigModel;
-import org.opensearch.security.securityconf.DynamicConfigFactory;
-import org.opensearch.security.securityconf.EvaluatedDlsFlsConfig;
-import org.opensearch.security.securityconf.FlattenedActionGroups;
-import org.opensearch.security.securityconf.impl.CType;
 import org.opensearch.security.securityconf.impl.SecurityDynamicConfiguration;
-import org.opensearch.security.securityconf.impl.v7.ActionGroupsV7;
 import org.opensearch.security.securityconf.impl.v7.RoleV7;
 import org.opensearch.security.support.Base64Helper;
 import org.opensearch.security.support.ConfigConstants;
 import org.opensearch.security.support.HeaderHelper;
-import org.opensearch.security.support.SecurityUtils;
 import org.opensearch.threadpool.ThreadPool;
-
-import org.greenrobot.eventbus.Subscribe;
 
 public class DlsFlsValveImpl implements DlsFlsRequestValve {
 
@@ -184,7 +172,10 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
             // TODO check
             if (threadContext.getHeader(ConfigConstants.OPENDISTRO_SECURITY_FILTER_LEVEL_DLS_DONE) != null) {
                 if (log.isDebugEnabled()) {
-                    log.debug("DLS is already done for: {}", threadContext.getHeader(ConfigConstants.OPENDISTRO_SECURITY_FILTER_LEVEL_DLS_DONE));
+                    log.debug(
+                        "DLS is already done for: {}",
+                        threadContext.getHeader(ConfigConstants.OPENDISTRO_SECURITY_FILTER_LEVEL_DLS_DONE)
+                    );
                 }
 
                 return true;
@@ -195,7 +186,8 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
 
             if (mode == Mode.FILTER_LEVEL) {
                 doFilterLevelDls = true;
-                dlsRestrictionMap = config.getDocumentPrivileges().getRestrictions(context, resolved.getAllIndicesResolved(clusterService, context.getIndexNameExpressionResolver()));
+                dlsRestrictionMap = config.getDocumentPrivileges()
+                    .getRestrictions(context, resolved.getAllIndicesResolved(clusterService, context.getIndexNameExpressionResolver()));
             } else if (mode == Mode.LUCENE_LEVEL) {
                 doFilterLevelDls = false;
             } else { // mode == Mode.ADAPTIVE
@@ -205,7 +197,8 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
                     doFilterLevelDls = true;
                     log.debug("Doing filter-level DLS due to header");
                 } else {
-                    dlsRestrictionMap = config.getDocumentPrivileges().getRestrictions(context, resolved.getAllIndicesResolved(clusterService, context.getIndexNameExpressionResolver()));
+                    dlsRestrictionMap = config.getDocumentPrivileges()
+                        .getRestrictions(context, resolved.getAllIndicesResolved(clusterService, context.getIndexNameExpressionResolver()));
                     doFilterLevelDls = dlsRestrictionMap.containsAny(DlsRestriction::containsTermLookupQuery);
 
                     if (doFilterLevelDls) {
@@ -224,7 +217,11 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
                     setDlsHeaders(config.getDocumentPrivileges().getRestrictions(context, indices), request);
                 }
 
-                setFlsHeaders(config.getFieldPrivileges().getRestrictions(context, indices), config.getFieldMasking().getRestrictions(context, indices), request);
+                setFlsHeaders(
+                    config.getFieldPrivileges().getRestrictions(context, indices),
+                    config.getFieldMasking().getRestrictions(context, indices),
+                    request
+                );
             }
 
             if (request instanceof RealtimeRequest) {
@@ -286,12 +283,12 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
                         searchRequest.requestCache(Boolean.FALSE);
                     } else {
                         LogManager.getLogger("debuglogger")
-                                .error(
-                                        "Shard requestcache enabled for "
-                                                + (searchRequest.source() == null
-                                                ? "<NULL>"
-                                                : Strings.toString(MediaTypeRegistry.JSON, searchRequest.source()))
-                                );
+                            .error(
+                                "Shard requestcache enabled for "
+                                    + (searchRequest.source() == null
+                                        ? "<NULL>"
+                                        : Strings.toString(MediaTypeRegistry.JSON, searchRequest.source()))
+                            );
                     }
 
                 } else {
@@ -308,7 +305,7 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
                 for (DocWriteRequest<?> inner : ((BulkRequest) request).requests()) {
                     if (inner instanceof UpdateRequest) {
                         listener.onFailure(
-                                new OpenSearchSecurityException("Update is not supported when FLS or DLS or Fieldmasking is activated")
+                            new OpenSearchSecurityException("Update is not supported when FLS or DLS or Fieldmasking is activated")
                         );
                         return false;
                     }
@@ -319,7 +316,7 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
                 for (BulkItemRequest inner : ((BulkShardRequest) request).items()) {
                     if (inner.request() instanceof UpdateRequest) {
                         listener.onFailure(
-                                new OpenSearchSecurityException("Update is not supported when FLS or DLS or Fieldmasking is activated")
+                            new OpenSearchSecurityException("Update is not supported when FLS or DLS or Fieldmasking is activated")
                         );
                         return false;
                     }
@@ -333,10 +330,10 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
 
             if (context.getAction().contains("plugins/replication")) {
                 listener.onFailure(
-                        new OpenSearchSecurityException(
-                                "Cross Cluster Replication is not supported when FLS or DLS or Fieldmasking is activated",
-                                RestStatus.FORBIDDEN
-                        )
+                    new OpenSearchSecurityException(
+                        "Cross Cluster Replication is not supported when FLS or DLS or Fieldmasking is activated",
+                        RestStatus.FORBIDDEN
+                    )
                 );
                 return false;
             }
@@ -367,15 +364,15 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
 
             if (doFilterLevelDls && hasDlsRestrictions) {
                 return DlsFilterLevelActionHandler.handle(
-                        context,
-                        dlsRestrictionMap,
-                        listener,
-                        nodeClient,
-                        clusterService,
-                        OpenSearchSecurityPlugin.GuiceHolder.getIndicesService(),
-                        resolver,
-                        dlsQueryParser,
-                        threadContext
+                    context,
+                    dlsRestrictionMap,
+                    listener,
+                    nodeClient,
+                    clusterService,
+                    OpenSearchSecurityPlugin.GuiceHolder.getIndicesService(),
+                    resolver,
+                    dlsQueryParser,
+                    threadContext
                 );
             } else {
                 return true;
@@ -399,6 +396,10 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
             }
 
             PrivilegesEvaluationContext privilegesEvaluationContext = this.dlsFlsBaseContext.getPrivilegesEvaluationContext();
+            if (privilegesEvaluationContext == null) {
+                return;
+            }
+
             DlsFlsProcessedConfig config = this.dlsFlsProcessedConfig.get();
 
             String index = searchContext.indexShard().indexSettings().getIndex().getName();
@@ -411,8 +412,10 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
             if (!dlsRestriction.isUnrestricted()) {
                 assert searchContext.parsedQuery() != null;
 
-                BooleanQuery.Builder queryBuilder = dlsRestriction.toBooleanQueryBuilder(searchContext.getQueryShardContext(),
-                        (q) -> new ConstantScoreQuery(q));
+                BooleanQuery.Builder queryBuilder = dlsRestriction.toBooleanQueryBuilder(
+                    searchContext.getQueryShardContext(),
+                    (q) -> new ConstantScoreQuery(q)
+                );
 
                 queryBuilder.add(searchContext.parsedQuery().query(), Occur.MUST);
 
@@ -479,7 +482,14 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
             Map<String, Set<String>> dlsQueriesByIndex = new HashMap<>();
 
             for (Map.Entry<String, DlsRestriction> entry : dlsRestrictionMap.getIndexMap().entrySet()) {
-                dlsQueriesByIndex.put(entry.getKey(), entry.getValue().getQueries().stream().map(queryBuilder -> Strings.toString(MediaTypeRegistry.JSON, queryBuilder)).collect(Collectors.toSet()));
+                dlsQueriesByIndex.put(
+                    entry.getKey(),
+                    entry.getValue()
+                        .getQueries()
+                        .stream()
+                        .map(queryBuilder -> Strings.toString(MediaTypeRegistry.JSON, queryBuilder))
+                        .collect(Collectors.toSet())
+                );
             }
 
             if (request instanceof ClusterSearchShardsRequest && HeaderHelper.isTrustedClusterRequest(threadContext)) {
@@ -541,7 +551,11 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
         }
     }
 
-    private void setFlsHeaders(IndexToRuleMap<FieldPrivileges.FlsRule> flsRuleMap, IndexToRuleMap<FieldMasking.FieldMaskingRule> fmRuleMap, ActionRequest request) {
+    private void setFlsHeaders(
+        IndexToRuleMap<FieldPrivileges.FlsRule> flsRuleMap,
+        IndexToRuleMap<FieldMasking.FieldMaskingRule> fmRuleMap,
+        ActionRequest request
+    ) {
         if (!fmRuleMap.isUnrestricted()) {
             Map<String, Set<String>> maskedFieldsMap = new HashMap<>();
 
@@ -777,12 +791,18 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
     }
 
     @SuppressWarnings("unchecked")
-    public void updateConfiguration(
-            SecurityDynamicConfiguration<?> rolesConfiguration
-    ) {
+    public void updateConfiguration(SecurityDynamicConfiguration<?> rolesConfiguration) {
         try {
             if (rolesConfiguration != null) {
-                this.dlsFlsProcessedConfig.set(new DlsFlsProcessedConfig((SecurityDynamicConfiguration<RoleV7>) rolesConfiguration, clusterService.state().metadata().getIndicesLookup(), namedXContentRegistry, settings, fieldMaskingConfig));
+                this.dlsFlsProcessedConfig.set(
+                    new DlsFlsProcessedConfig(
+                        (SecurityDynamicConfiguration<RoleV7>) rolesConfiguration,
+                        clusterService.state().metadata().getIndicesLookup(),
+                        namedXContentRegistry,
+                        settings,
+                        fieldMaskingConfig
+                    )
+                );
             }
         } catch (Exception e) {
             log.error("Error while updating DLS/FLS configuration with {}", rolesConfiguration, e);

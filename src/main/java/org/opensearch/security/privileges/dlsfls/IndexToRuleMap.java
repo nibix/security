@@ -1,8 +1,8 @@
 package org.opensearch.security.privileges.dlsfls;
 
-import com.google.common.collect.ImmutableMap;
-
 import java.util.function.Predicate;
+
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Maps index names to DLS/FLS/FM rules.

@@ -1,6 +1,13 @@
 package org.opensearch.security.privileges.dlsfls;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
 import com.google.common.collect.ImmutableList;
+
 import org.opensearch.cluster.metadata.IndexAbstraction;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.security.privileges.PrivilegesConfigurationValidationException;
@@ -9,12 +16,6 @@ import org.opensearch.security.privileges.PrivilegesEvaluationException;
 import org.opensearch.security.securityconf.impl.SecurityDynamicConfiguration;
 import org.opensearch.security.securityconf.impl.v7.RoleV7;
 import org.opensearch.security.support.WildcardMatcher;
-
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 public class FieldPrivileges extends AbstractRuleBasedPrivileges<FieldPrivileges.FlsRule, FieldPrivileges.FlsRule> {
 
@@ -135,14 +136,23 @@ public class FieldPrivileges extends AbstractRuleBasedPrivileges<FieldPrivileges
                     // We prepend to the list of inclusions one "exclude all" rule.
                     // The evaluation algorithm in internalIsAllowed() (see below) will then start with a
                     // "include nothing" state and gradually include the patterns.
-                    this.patterns =  ImmutableList.<FlsPattern>builder().add(FlsPattern.EXCLUDE_ALL).addAll(flsPatterns.build()).build();
+                    this.patterns = ImmutableList.<FlsPattern>builder().add(FlsPattern.EXCLUDE_ALL).addAll(flsPatterns.build()).build();
                 } else {
-                    // Mixed
-                    this.patterns = flsPatterns.build();
+                    // Mixed inclusions and exclusions
+                    //
+                    // While the docs say that mixing inclusions and exclusions is not supported, the original
+                    // implementation only regarded exclusions and disregarded inclusions if these were mixed.
+                    // We are mirroring this behaviour here. It might make sense to rethink the semantics here,
+                    // though, as there might be semantics which make more sense.
+                    //
+                    // See:
+                    // https://github.com/opensearch-project/security/blob/e73fc24509363cb1573607c6cf47c98780fc89de/src/main/java/org/opensearch/security/configuration/DlsFlsFilterLeafReader.java#L658-L662
+                    // https://opensearch.org/docs/latest/security/access-control/field-level-security/
+                    this.patterns = flsPatterns.build().stream().filter(e -> e.isExcluded()).collect(ImmutableList.toImmutableList());
                 }
 
                 this.allowAll = patterns.isEmpty()
-                        || (patterns.size() == 1 && patterns.get(0).getPattern() == WildcardMatcher.ANY && !patterns.get(0).isExcluded());
+                    || (patterns.size() == 1 && patterns.get(0).getPattern() == WildcardMatcher.ANY && !patterns.get(0).isExcluded());
 
                 if (this.allowAll) {
                     this.cache = null;
@@ -155,7 +165,7 @@ public class FieldPrivileges extends AbstractRuleBasedPrivileges<FieldPrivileges
                 this.patterns = patterns;
                 this.sourceIndex = null;
                 this.allowAll = patterns.isEmpty()
-                        || (patterns.size() == 1 && patterns.get(0).getPattern()  == WildcardMatcher.ANY && !patterns.get(0).isExcluded());
+                    || (patterns.size() == 1 && patterns.get(0).getPattern() == WildcardMatcher.ANY && !patterns.get(0).isExcluded());
                 this.cache = null;
             }
 
@@ -249,6 +259,7 @@ public class FieldPrivileges extends AbstractRuleBasedPrivileges<FieldPrivileges
             private boolean internalIsAllowed(String field) {
                 field = stripKeywordSuffix(field);
 
+                // TODO check
                 for (SingleRole entry : this.entries) {
                     if (entry.isAllowed(field)) {
                         return true;

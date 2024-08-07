@@ -63,10 +63,8 @@ import org.opensearch.security.privileges.dlsfls.DlsRestriction;
 import org.opensearch.security.privileges.dlsfls.IndexToRuleMap;
 import org.opensearch.security.queries.QueryBuilderTraverser;
 import org.opensearch.security.resolver.IndexResolverReplacer.Resolved;
-import org.opensearch.security.securityconf.EvaluatedDlsFlsConfig;
 import org.opensearch.security.support.ConfigConstants;
 import org.opensearch.security.support.ReflectiveAttributeAccessors;
-import org.opensearch.security.support.SecurityUtils;
 
 public class DlsFilterLevelActionHandler {
     private static final Logger log = LogManager.getLogger(DlsFilterLevelActionHandler.class);

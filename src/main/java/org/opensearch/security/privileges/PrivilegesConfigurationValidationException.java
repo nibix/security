@@ -12,4 +12,3 @@ public class PrivilegesConfigurationValidationException extends Exception {
         super(message, cause);
     }
 }
-

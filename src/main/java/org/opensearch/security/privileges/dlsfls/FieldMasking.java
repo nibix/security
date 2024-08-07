@@ -1,11 +1,21 @@
 package org.opensearch.security.privileges.dlsfls;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.PatternSyntaxException;
+import java.util.stream.Collectors;
+
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.rfksystems.blake2b.Blake2b;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.lucene.util.BytesRef;
-import org.bouncycastle.crypto.digests.Blake2bDigest;
+import org.bouncycastle.util.encoders.Hex;
+
 import org.opensearch.cluster.metadata.IndexAbstraction;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.security.configuration.Salt;
@@ -17,28 +27,24 @@ import org.opensearch.security.securityconf.impl.v7.RoleV7;
 import org.opensearch.security.support.ConfigConstants;
 import org.opensearch.security.support.WildcardMatcher;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.regex.PatternSyntaxException;
-import java.nio.charset.StandardCharsets;
-import java.util.stream.Collectors;
-
-import org.bouncycastle.util.encoders.Hex;
+import com.rfksystems.blake2b.Blake2b;
 
 public class FieldMasking extends AbstractRuleBasedPrivileges<FieldMasking.FieldMaskingRule.SingleRole, FieldMasking.FieldMaskingRule> {
 
     private final FieldMasking.Config fieldMaskingConfig;
 
-    public FieldMasking(SecurityDynamicConfiguration<RoleV7> roles, Map<String, IndexAbstraction> indexMetadata, FieldMasking.Config fieldMaskingConfig, Settings settings) {
+    public FieldMasking(
+        SecurityDynamicConfiguration<RoleV7> roles,
+        Map<String, IndexAbstraction> indexMetadata,
+        FieldMasking.Config fieldMaskingConfig,
+        Settings settings
+    ) {
         super(roles, indexMetadata, (rolePermissions) -> roleToRule(rolePermissions, fieldMaskingConfig), settings);
         this.fieldMaskingConfig = fieldMaskingConfig;
     }
 
-    static FieldMaskingRule.SingleRole roleToRule(RoleV7.Index rolePermissions, FieldMasking.Config fieldMaskingConfig) throws PrivilegesConfigurationValidationException {
+    static FieldMaskingRule.SingleRole roleToRule(RoleV7.Index rolePermissions, FieldMasking.Config fieldMaskingConfig)
+        throws PrivilegesConfigurationValidationException {
         List<String> fmExpressions = rolePermissions.getMasked_fields();
 
         if (fmExpressions != null && !fmExpressions.isEmpty()) {
@@ -56,19 +62,21 @@ public class FieldMasking extends AbstractRuleBasedPrivileges<FieldMasking.Field
     @Override
     protected FieldMaskingRule fullyRestricted() {
         return new FieldMaskingRule.SingleRole(
-                ImmutableList.of(new FieldMaskingRule.Field(FieldMaskingExpression.MASK_ALL, fieldMaskingConfig)));
+            ImmutableList.of(new FieldMaskingRule.Field(FieldMaskingExpression.MASK_ALL, fieldMaskingConfig))
+        );
     }
 
     @Override
     protected FieldMaskingRule compile(PrivilegesEvaluationContext context, Collection<FieldMaskingRule.SingleRole> rules)
-            throws PrivilegesEvaluationException {
+        throws PrivilegesEvaluationException {
         return new FieldMaskingRule.MultiRole(rules);
     }
 
     public static abstract class FieldMaskingRule extends AbstractRuleBasedPrivileges.Rule {
         public static final FieldMaskingRule ALLOW_ALL = new FieldMaskingRule.SingleRole(ImmutableList.of());
 
-        public static FieldMaskingRule of(FieldMasking.Config fieldMaskingConfig, String... rules) throws PrivilegesConfigurationValidationException {
+        public static FieldMaskingRule of(FieldMasking.Config fieldMaskingConfig, String... rules)
+            throws PrivilegesConfigurationValidationException {
             ImmutableList.Builder<Field> patterns = new ImmutableList.Builder<>();
 
             for (String rule : rules) {
@@ -139,7 +147,8 @@ public class FieldMasking extends AbstractRuleBasedPrivileges<FieldMasking.Field
                 return this.expressions.stream().map(FieldMaskingRule.Field::getSource).collect(Collectors.toList());
             }
 
-            static ImmutableList<FieldMaskingRule.Field> parseExpressions(RoleV7.Index index, FieldMasking.Config fieldMaskingConfig) throws PrivilegesConfigurationValidationException {
+            static ImmutableList<FieldMaskingRule.Field> parseExpressions(RoleV7.Index index, FieldMasking.Config fieldMaskingConfig)
+                throws PrivilegesConfigurationValidationException {
                 if (index.getMasked_fields() == null || index.getMasked_fields().isEmpty()) {
                     return ImmutableList.of();
                 }
@@ -147,7 +156,7 @@ public class FieldMasking extends AbstractRuleBasedPrivileges<FieldMasking.Field
                 ImmutableList.Builder<FieldMaskingRule.Field> result = ImmutableList.builder();
 
                 for (String source : index.getMasked_fields()) {
-                        result.add(new Field(new FieldMaskingExpression(source), fieldMaskingConfig));
+                    result.add(new Field(new FieldMaskingExpression(source), fieldMaskingConfig));
                 }
 
                 return result.build();
@@ -207,7 +216,9 @@ public class FieldMasking extends AbstractRuleBasedPrivileges<FieldMasking.Field
 
             Field(FieldMaskingExpression expression, FieldMasking.Config fieldMaskingConfig) {
                 this.expression = expression;
-                this.hashAlgorithm = expression.getAlgoName() != null ? expression.getAlgoName() : StringUtils.isNotEmpty(fieldMaskingConfig.getDefaultHashAlgorithm()) ? fieldMaskingConfig.getDefaultHashAlgorithm() : null;
+                this.hashAlgorithm = expression.getAlgoName() != null ? expression.getAlgoName()
+                    : StringUtils.isNotEmpty(fieldMaskingConfig.getDefaultHashAlgorithm()) ? fieldMaskingConfig.getDefaultHashAlgorithm()
+                    : null;
                 this.salt = fieldMaskingConfig.getSalt();
                 this.saltBytes = this.salt.getSalt16();
             }
@@ -224,7 +235,7 @@ public class FieldMasking extends AbstractRuleBasedPrivileges<FieldMasking.Field
                 } else {
                     return blake2bHash(value);
                 }
-           }
+            }
 
             public String apply(String value) {
                 return new String(apply(value.getBytes(StandardCharsets.UTF_8)), StandardCharsets.UTF_8);
@@ -256,7 +267,7 @@ public class FieldMasking extends AbstractRuleBasedPrivileges<FieldMasking.Field
                 }
             }
 
-            private byte [] applyRegexReplacements(byte [] value, List<FieldMaskingExpression.RegexReplacement> regexReplacements) {
+            private byte[] applyRegexReplacements(byte[] value, List<FieldMaskingExpression.RegexReplacement> regexReplacements) {
                 String string = new String(value, StandardCharsets.UTF_8);
                 for (FieldMaskingExpression.RegexReplacement rr : regexReplacements) {
                     string = rr.getRegex().matcher(string).replaceAll(rr.getReplacement());
@@ -321,7 +332,9 @@ public class FieldMasking extends AbstractRuleBasedPrivileges<FieldMasking.Field
                     regexReplacements.add(new RegexReplacement(tokens.get(i), tokens.get(i + 1)));
                 }
             } else {
-                throw new PrivilegesConfigurationValidationException("A field masking expression must have the form 'field_name', 'field_name::algorithm', 'field_name::regex::replacement' or 'field_name::(regex::replacement)+'");
+                throw new PrivilegesConfigurationValidationException(
+                    "A field masking expression must have the form 'field_name', 'field_name::algorithm', 'field_name::regex::replacement' or 'field_name::(regex::replacement)+'"
+                );
             }
         }
 

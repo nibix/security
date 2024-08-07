@@ -10,13 +10,13 @@
  */
 package org.opensearch.security.privileges.dlsfls;
 
+import java.util.Map;
+
 import org.opensearch.cluster.metadata.IndexAbstraction;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.security.securityconf.impl.SecurityDynamicConfiguration;
 import org.opensearch.security.securityconf.impl.v7.RoleV7;
-
-import java.util.Map;
 
 /**
  * Encapsulates the processed DLS/FLS configuration from roles.yml.
@@ -27,7 +27,13 @@ public class DlsFlsProcessedConfig {
     private final FieldPrivileges fieldPrivileges;
     private final FieldMasking fieldMasking;
 
-    public DlsFlsProcessedConfig(SecurityDynamicConfiguration<RoleV7> rolesConfiguration, Map<String, IndexAbstraction> indexMetadata, NamedXContentRegistry xContentRegistry, Settings settings, FieldMasking.Config fieldMaskingConfig) {
+    public DlsFlsProcessedConfig(
+        SecurityDynamicConfiguration<RoleV7> rolesConfiguration,
+        Map<String, IndexAbstraction> indexMetadata,
+        NamedXContentRegistry xContentRegistry,
+        Settings settings,
+        FieldMasking.Config fieldMaskingConfig
+    ) {
         this.documentPrivileges = new DocumentPrivileges(rolesConfiguration, indexMetadata, xContentRegistry, settings);
         this.fieldPrivileges = new FieldPrivileges(rolesConfiguration, indexMetadata, settings);
         this.fieldMasking = new FieldMasking(rolesConfiguration, indexMetadata, fieldMaskingConfig, settings);

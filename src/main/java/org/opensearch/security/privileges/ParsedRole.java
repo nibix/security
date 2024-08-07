@@ -1,4 +1,3 @@
 package org.opensearch.security.privileges;
 
-public class ParsedRole {
-}
+public class ParsedRole {}

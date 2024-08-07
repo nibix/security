@@ -10,9 +10,7 @@
  */
 package org.opensearch.security.privileges.dlsfls;
 
-import com.google.common.collect.ImmutableSet;
 import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.indices.IndicesModule;
 import org.opensearch.security.privileges.PrivilegesEvaluationContext;
 import org.opensearch.security.privileges.PrivilegesEvaluator;
 import org.opensearch.security.support.ConfigConstants;
@@ -54,14 +52,5 @@ public class DlsFlsBaseContext {
 
     String getDoneDlsFilterLevelQuery() {
         return threadContext.getHeader(ConfigConstants.OPENDISTRO_SECURITY_FILTER_LEVEL_DLS_DONE);
-    }
-
-    /**
-     * Meta fields like _id get always included, regardless of settings.
-     */
-    private static final ImmutableSet<String> META_FIELDS = ImmutableSet.<String>builder().addAll(IndicesModule.getBuiltInMetadataFields()).add("_primary_term").build();
-
-    public static boolean isMetaField(String field) {
-        return META_FIELDS.contains(field);
     }
 }
