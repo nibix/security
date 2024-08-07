@@ -32,6 +32,7 @@ import org.opensearch.index.IndexService;
 import org.opensearch.index.mapper.Uid;
 import org.opensearch.security.auditlog.AuditLog;
 import org.opensearch.security.dlic.rest.support.Utils;
+import org.opensearch.security.privileges.dlsfls.FieldMasking;
 import org.opensearch.security.support.HeaderHelper;
 import org.opensearch.security.support.JsonFlattener;
 import org.opensearch.security.support.SourceFieldsContext;
@@ -49,7 +50,7 @@ public final class FieldReadCallback {
     // private final ThreadContext threadContext;
     // private final ClusterService clusterService;
     private final Index index;
-    private final WildcardMatcher maskedFieldsMatcher;
+    private final FieldMasking.FieldMaskingRule fmRule;
     private final AuditLog auditLog;
     private Function<Map<String, ?>, Map<String, Object>> filterFunction;
     private SourceFieldsContext sfc;
@@ -61,7 +62,7 @@ public final class FieldReadCallback {
         final IndexService indexService,
         final ClusterService clusterService,
         final AuditLog auditLog,
-        final WildcardMatcher maskedFieldsMatcher,
+        final FieldMasking.FieldMaskingRule fmRule,
         ShardId shardId
     ) {
         super();
@@ -69,7 +70,7 @@ public final class FieldReadCallback {
         // this.clusterService = Objects.requireNonNull(clusterService);
         this.index = Objects.requireNonNull(indexService).index();
         this.auditLog = auditLog;
-        this.maskedFieldsMatcher = maskedFieldsMatcher;
+        this.fmRule = fmRule;
         this.shardId = shardId;
         try {
             sfc = (SourceFieldsContext) HeaderHelper.deserializeSafeFromHeader(threadContext, "_opendistro_security_source_field_context");
@@ -88,7 +89,8 @@ public final class FieldReadCallback {
     }
 
     private boolean recordField(final String fieldName, boolean isStringField) {
-        return !(isStringField && maskedFieldsMatcher.test(fieldName))
+        // We do not record fields in read history if they are masked.
+        return !(isStringField && fmRule.isMasked(fieldName))
             && auditLog.getComplianceConfig().readHistoryEnabledForField(index.getName(), fieldName);
     }
 
