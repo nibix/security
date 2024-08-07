@@ -1,11 +1,19 @@
 package org.opensearch.security.privileges.dlsfls;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import com.google.common.collect.ImmutableMap;
-import com.selectivem.collections.CompactMapGroupBuilder;
-import com.selectivem.collections.DeduplicatingCompactSubSetBuilder;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
 import org.opensearch.cluster.metadata.IndexAbstraction;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.security.privileges.IndexPattern;
@@ -18,14 +26,8 @@ import org.opensearch.security.securityconf.impl.v7.RoleV7;
 import org.opensearch.security.support.ConfigConstants;
 import org.opensearch.security.support.WildcardMatcher;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import com.selectivem.collections.CompactMapGroupBuilder;
+import com.selectivem.collections.DeduplicatingCompactSubSetBuilder;
 
 /**
  * Abstract super class which provides common DLS/FLS/FM rule evaluation functionality for the concrete classes
@@ -44,15 +46,19 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
 
     private volatile StatefulRules<SingleRule> statefulRules;
 
-    public AbstractRuleBasedPrivileges(SecurityDynamicConfiguration<RoleV7> roles, Map<String, IndexAbstraction> indexMetadata,
-                                       RoleToRuleFunction<SingleRule> roleToRuleFunction, Settings settings) {
+    public AbstractRuleBasedPrivileges(
+        SecurityDynamicConfiguration<RoleV7> roles,
+        Map<String, IndexAbstraction> indexMetadata,
+        RoleToRuleFunction<SingleRule> roleToRuleFunction,
+        Settings settings
+    ) {
         this.roles = roles;
         this.roleToRuleFunction = roleToRuleFunction;
         this.staticIndexRules = new StaticRules.Index<>(roles, roleToRuleFunction);
         this.dfmEmptyOverwritesAll = settings.getAsBoolean(ConfigConstants.SECURITY_DFM_EMPTY_OVERRIDES_ALL, false);
 
         if (indexMetadata != null) {
-                this.statefulRules = new StatefulRules<>(roles, indexMetadata, roleToRuleFunction);
+            this.statefulRules = new StatefulRules<>(roles, indexMetadata, roleToRuleFunction);
         }
     }
 
@@ -60,8 +66,9 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
      * Returns true if the user identified in the PrivilegesEvaluationContext does not have any restrictions in any case,
      * independently of the indices they are requesting.
      */
-   public boolean isUniversallyUnrestricted(PrivilegesEvaluationContext context) {
-        if (this.dfmEmptyOverwritesAll && CollectionUtils.containsAny(this.staticIndexRules.rolesWithIndexWildcardWithoutRule, context.getMappedRoles())) {
+    public boolean isUniversallyUnrestricted(PrivilegesEvaluationContext context) {
+        if (this.dfmEmptyOverwritesAll
+            && CollectionUtils.containsAny(this.staticIndexRules.rolesWithIndexWildcardWithoutRule, context.getMappedRoles())) {
             return true;
         }
 
@@ -75,64 +82,66 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
      * @throws PrivilegesEvaluationException If something went wrong during privileges evaluation. In such cases, any
      * access should be denied to make sure that no unauthorized information is exposed.
      */
-   public  boolean isUnrestricted(PrivilegesEvaluationContext context, IndexResolverReplacer.Resolved resolved) throws PrivilegesEvaluationException {
-            if (context.getMappedRoles().isEmpty()) {
-                return false;
-            }
+    public boolean isUnrestricted(PrivilegesEvaluationContext context, IndexResolverReplacer.Resolved resolved)
+        throws PrivilegesEvaluationException {
+        if (context.getMappedRoles().isEmpty()) {
+            return false;
+        }
 
-            if (this.dfmEmptyOverwritesAll && CollectionUtils.containsAny(this.staticIndexRules.rolesWithIndexWildcardWithoutRule, context.getMappedRoles())) {
-                return true;
-            }
-
-            if (resolved == null) {
-                return false;
-            }
-
-            if (CollectionUtils.containsAny(this.staticIndexRules.roleWithIndexWildcardToRule.keySet(), context.getMappedRoles())) {
-                return false;
-            }
-
-            StatefulRules<SingleRule> statefulRules = this.statefulRules;
-
-            // The logic is here a bit tricky: For each index/alias/data stream we assume restrictions until we found an unrestricted role.
-            // If we found an unrestricted role, we continue with the next index/alias/data stream. If we found a restricted role, we abort
-            // early and return true.
-
-            for (String index : resolved.getAllIndicesResolved(context.getClusterStateSupplier(), context.getIndexNameExpressionResolver())) {
-                IndexAbstraction indexAbstraction = context.getIndicesLookup().get(index);
-
-                if (indexAbstraction == null) {
-                    // We have got a request for an index that does not exist.
-                    // For non-existing indices, it is safe to assume that no documents can be accessed.
-
-                    if (log.isDebugEnabled()) {
-                        log.debug("ResolvedIndices {} contain non-existing indices. Assuming full document restriction.", resolved);
-                    }
-
-                    return false;
-                }
-
-                if (!isUnrestrictedExplicit(context, statefulRules, indexAbstraction)) {
-                    return false;
-                }
-            }
-
+        if (this.dfmEmptyOverwritesAll
+            && CollectionUtils.containsAny(this.staticIndexRules.rolesWithIndexWildcardWithoutRule, context.getMappedRoles())) {
             return true;
+        }
+
+        if (resolved == null) {
+            return false;
+        }
+
+        if (CollectionUtils.containsAny(this.staticIndexRules.roleWithIndexWildcardToRule.keySet(), context.getMappedRoles())) {
+            return false;
+        }
+
+        StatefulRules<SingleRule> statefulRules = this.statefulRules;
+
+        // The logic is here a bit tricky: For each index/alias/data stream we assume restrictions until we found an unrestricted role.
+        // If we found an unrestricted role, we continue with the next index/alias/data stream. If we found a restricted role, we abort
+        // early and return true.
+
+        for (String index : resolved.getAllIndicesResolved(context.getClusterStateSupplier(), context.getIndexNameExpressionResolver())) {
+            IndexAbstraction indexAbstraction = context.getIndicesLookup().get(index);
+
+            if (indexAbstraction == null) {
+                // We have got a request for an index that does not exist.
+                // For non-existing indices, it is safe to assume that no documents can be accessed.
+
+                if (log.isDebugEnabled()) {
+                    log.debug("ResolvedIndices {} contain non-existing indices. Assuming full document restriction.", resolved);
+                }
+
+                return false;
+            }
+
+            if (!isUnrestrictedExplicit(context, statefulRules, indexAbstraction)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
      * Returns true if there are roles without a rule which imposes restrictions for the particular index.
      * Does consider rules with index wildcards ("*").
      */
-   public boolean isUnrestricted(PrivilegesEvaluationContext context, StatefulRules<SingleRule> statefulRules, String index) throws PrivilegesEvaluationException {
-            if (context.getMappedRoles().isEmpty()) {
-                return false;
-            }
+    public boolean isUnrestricted(PrivilegesEvaluationContext context, StatefulRules<SingleRule> statefulRules, String index)
+        throws PrivilegesEvaluationException {
+        if (context.getMappedRoles().isEmpty()) {
+            return false;
+        }
 
-            if (CollectionUtils.containsAny(this.staticIndexRules.rolesWithIndexWildcardWithoutRule, context.getMappedRoles())) {
-                return true;
-            }
-
+        if (CollectionUtils.containsAny(this.staticIndexRules.rolesWithIndexWildcardWithoutRule, context.getMappedRoles())) {
+            return true;
+        }
 
         IndexAbstraction indexAbstraction = context.getIndicesLookup().get(index);
         if (indexAbstraction == null) {
@@ -141,15 +150,18 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
             return false;
         }
 
-            return isUnrestrictedExplicit(context, statefulRules, indexAbstraction);
+        return isUnrestrictedExplicit(context, statefulRules, indexAbstraction);
     }
 
     /**
      * Returns true if there are roles without a rule which imposes restrictions for the particular index.
      * Does not consider rules with index wildcards ("*").
      */
-    private boolean isUnrestrictedExplicit(PrivilegesEvaluationContext context, StatefulRules<SingleRule> statefulRules, IndexAbstraction indexAbstraction)
-            throws PrivilegesEvaluationException {
+    private boolean isUnrestrictedExplicit(
+        PrivilegesEvaluationContext context,
+        StatefulRules<SingleRule> statefulRules,
+        IndexAbstraction indexAbstraction
+    ) throws PrivilegesEvaluationException {
 
         String index = indexAbstraction.getName();
 
@@ -211,7 +223,7 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
     }
 
     public JoinedRule getRestriction(PrivilegesEvaluationContext context, String index) throws PrivilegesEvaluationException {
-            return getRestrictionImpl(context, index);
+        return getRestrictionImpl(context, index);
     }
 
     protected JoinedRule getRestrictionImpl(PrivilegesEvaluationContext context, String index) throws PrivilegesEvaluationException {
@@ -219,7 +231,8 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
             return fullyRestricted();
         }
 
-        if (this.dfmEmptyOverwritesAll && CollectionUtils.containsAny(this.staticIndexRules.rolesWithIndexWildcardWithoutRule, context.getMappedRoles())) {
+        if (this.dfmEmptyOverwritesAll
+            && CollectionUtils.containsAny(this.staticIndexRules.rolesWithIndexWildcardWithoutRule, context.getMappedRoles())) {
             return unrestricted();
         }
 
@@ -261,9 +274,8 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
         }
     }
 
-
     public IndexToRuleMap<JoinedRule> getRestrictions(PrivilegesEvaluationContext context, Collection<String> indices)
-            throws PrivilegesEvaluationException {
+        throws PrivilegesEvaluationException {
         if (isUniversallyUnrestricted(context)) {
             return IndexToRuleMap.unrestricted();
         }
@@ -289,8 +301,8 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
         return new IndexToRuleMap<>(result.build());
     }
 
-
-    private void collectRules(PrivilegesEvaluationContext context, Set<SingleRule> ruleSink, IndexAbstraction indexAbstraction) throws PrivilegesEvaluationException {
+    private void collectRules(PrivilegesEvaluationContext context, Set<SingleRule> ruleSink, IndexAbstraction indexAbstraction)
+        throws PrivilegesEvaluationException {
         String index = indexAbstraction.getName();
         Map<String, SingleRule> statefulRoleToRule = null;
         boolean statefulRulesEffective;
@@ -334,8 +346,7 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
                 }
             }
 
-            Map<IndexPattern, SingleRule> dynamicIndexPatternToRule = this.staticIndexRules.rolesToDynamicIndexPatternToRule
-                    .get(role);
+            Map<IndexPattern, SingleRule> dynamicIndexPatternToRule = this.staticIndexRules.rolesToDynamicIndexPatternToRule.get(role);
 
             if (dynamicIndexPatternToRule != null) {
                 for (Map.Entry<IndexPattern, SingleRule> entry : dynamicIndexPatternToRule.entrySet()) {
@@ -355,13 +366,14 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
 
     protected abstract JoinedRule fullyRestricted();
 
-    protected abstract JoinedRule compile(PrivilegesEvaluationContext context, Collection<SingleRule> rules) throws PrivilegesEvaluationException;
+    protected abstract JoinedRule compile(PrivilegesEvaluationContext context, Collection<SingleRule> rules)
+        throws PrivilegesEvaluationException;
 
     public synchronized void updateIndices(Map<String, IndexAbstraction> indexMetadata) {
         StatefulRules<SingleRule> statefulRules = this.statefulRules;
 
         if (statefulRules == null || !statefulRules.indexMetadata.keySet().equals(indexMetadata.keySet())) {
-                this.statefulRules = new StatefulRules<>(roles, indexMetadata, this.roleToRuleFunction);
+            this.statefulRules = new StatefulRules<>(roles, indexMetadata, this.roleToRuleFunction);
         }
     }
 
@@ -393,7 +405,7 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
             }
 
             return result;
-        } else  {
+        } else {
             return Collections.emptySet();
         }
     }
@@ -401,7 +413,7 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
     private Set<String> getParentAliases(IndexAbstraction indexAbstraction) {
         if (indexAbstraction instanceof IndexAbstraction.Index) {
             return ((IndexAbstraction.Index) indexAbstraction).getWriteIndex().getAliases().keySet();
-        } else  {
+        } else {
             return Collections.emptySet();
         }
     }
@@ -413,7 +425,6 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
                 super(roles, "index", roleToRuleFunction);
             }
         }
-
 
         protected final Set<String> rolesWithIndexWildcardWithoutRule;
         protected final Map<String, SingleRule> roleWithIndexWildcardToRule;
@@ -432,8 +443,7 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
 
         protected final RoleToRuleFunction<SingleRule> roleToRuleFunction;
 
-        StaticRules(SecurityDynamicConfiguration<RoleV7> roles, String objectName,
-                    RoleToRuleFunction<SingleRule> roleToRuleFunction) {
+        StaticRules(SecurityDynamicConfiguration<RoleV7> roles, String objectName, RoleToRuleFunction<SingleRule> roleToRuleFunction) {
             this.roleToRuleFunction = roleToRuleFunction;
 
             Set<String> rolesWithIndexWildcardWithoutRule = new HashSet<>();
@@ -463,17 +473,21 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
 
                             if (indexPattern.hasStaticPattern()) {
                                 if (singleRule == null) {
-                                    rolesToStaticIndexPatternWithoutRule.computeIfAbsent(roleName, k -> new ArrayList<>()).add(indexPattern.getStaticPattern());
+                                    rolesToStaticIndexPatternWithoutRule.computeIfAbsent(roleName, k -> new ArrayList<>())
+                                        .add(indexPattern.getStaticPattern());
                                 } else {
-                                    rolesToStaticIndexPatternToRule.computeIfAbsent(roleName, k -> new HashMap<>()).put(indexPattern.getStaticPattern(), singleRule);
+                                    rolesToStaticIndexPatternToRule.computeIfAbsent(roleName, k -> new HashMap<>())
+                                        .put(indexPattern.getStaticPattern(), singleRule);
                                 }
                             }
 
                             if (indexPattern.hasDynamicPattern()) {
                                 if (singleRule == null) {
-                                    rolesToDynamicIndexPatternWithoutRule.computeIfAbsent(roleName, k -> new HashSet<>()).add(indexPattern.dynamicOnly());
+                                    rolesToDynamicIndexPatternWithoutRule.computeIfAbsent(roleName, k -> new HashSet<>())
+                                        .add(indexPattern.dynamicOnly());
                                 } else {
-                                    rolesToDynamicIndexPatternToRule.computeIfAbsent(roleName, k -> new HashMap<>()).put(indexPattern.dynamicOnly(), singleRule);
+                                    rolesToDynamicIndexPatternToRule.computeIfAbsent(roleName, k -> new HashMap<>())
+                                        .put(indexPattern.dynamicOnly(), singleRule);
                                 }
                             }
                         }
@@ -490,25 +504,20 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
 
             this.rolesToStaticIndexPatternToRule = rolesToStaticIndexPatternToRule;
             this.rolesToStaticIndexPatternWithoutRule = rolesToStaticIndexPatternWithoutRule.entrySet()
-                    .stream()
-                    .collect(
-                            ImmutableMap.toImmutableMap(
-                                    entry -> entry.getKey(),
-                                    entry -> WildcardMatcher.from(entry.getValue())
-                            )
-                    );
+                .stream()
+                .collect(ImmutableMap.toImmutableMap(entry -> entry.getKey(), entry -> WildcardMatcher.from(entry.getValue())));
         }
 
         protected SingleRule roleToRule(RoleV7.Index rolePermissions) throws PrivilegesConfigurationValidationException {
             return this.roleToRuleFunction.apply(rolePermissions);
         }
 
-
         /**
          * Only to be used if there is no stateful index information
          */
         boolean hasUnrestrictedPatterns(PrivilegesEvaluationContext context, String index) throws PrivilegesEvaluationException {
-            // We assume that we have a restriction unless there are roles without restriction. This, we only have to check the roles without restriction.
+            // We assume that we have a restriction unless there are roles without restriction. This, we only have to check the roles
+            // without restriction.
             for (String role : context.getMappedRoles()) {
                 WildcardMatcher pattern = this.rolesToStaticIndexPatternWithoutRule.get(role);
 
@@ -522,10 +531,10 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
         }
 
         boolean hasUnrestrictedPatternTemplates(PrivilegesEvaluationContext context, String index) throws PrivilegesEvaluationException {
-            // We assume that we have a restriction unless there are roles without restriction. This, we only have to check the roles without restriction.
+            // We assume that we have a restriction unless there are roles without restriction. This, we only have to check the roles
+            // without restriction.
             for (String role : context.getMappedRoles()) {
-                Set<IndexPattern> dynamicIndexPatternsWithoutRule = this.rolesToDynamicIndexPatternWithoutRule
-                        .get(role);
+                Set<IndexPattern> dynamicIndexPatternsWithoutRule = this.rolesToDynamicIndexPatternWithoutRule.get(role);
 
                 if (dynamicIndexPatternsWithoutRule != null) {
                     for (IndexPattern indexPatternTemplate : dynamicIndexPatternsWithoutRule) {
@@ -565,8 +574,7 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
 
         boolean hasRestrictedPatternTemplates(PrivilegesEvaluationContext context, String index) throws PrivilegesEvaluationException {
             for (String role : context.getMappedRoles()) {
-                Map<IndexPattern, SingleRule> dynamicIndexPatternToRule = this.rolesToDynamicIndexPatternToRule
-                        .get(role);
+                Map<IndexPattern, SingleRule> dynamicIndexPatternToRule = this.rolesToDynamicIndexPatternToRule.get(role);
 
                 if (dynamicIndexPatternToRule != null) {
                     for (IndexPattern indexPattern : dynamicIndexPatternToRule.keySet()) {
@@ -591,91 +599,79 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
         final Map<String, Map<String, SingleRule>> indexToRoleToRule;
         final Map<String, Set<String>> indexToRoleWithoutRule;
 
+        private final RoleToRuleFunction<SingleRule> roleToRuleFunction;
 
-            private final RoleToRuleFunction<SingleRule> roleToRuleFunction;
+        StatefulRules(
+            SecurityDynamicConfiguration<RoleV7> roles,
+            Map<String, IndexAbstraction> indexMetadata,
+            RoleToRuleFunction<SingleRule> roleToRuleFunction
+        ) {
+            this.roleToRuleFunction = roleToRuleFunction;
+            this.indexMetadata = indexMetadata;
 
-            StatefulRules(SecurityDynamicConfiguration<RoleV7> roles, Map<String, IndexAbstraction> indexMetadata, RoleToRuleFunction<SingleRule> roleToRuleFunction) {
-                this.roleToRuleFunction = roleToRuleFunction;
-                this.indexMetadata = indexMetadata;
+            DeduplicatingCompactSubSetBuilder<String> roleSetBuilder = new DeduplicatingCompactSubSetBuilder<>(
+                roles.getCEntries().keySet()
+            );
+            CompactMapGroupBuilder<String, SingleRule> roleMapBuilder = new CompactMapGroupBuilder<>(roles.getCEntries().keySet());
+            Map<String, DeduplicatingCompactSubSetBuilder.SubSetBuilder<String>> indexToRoleWithoutRule = new HashMap<>();
+            Map<String, CompactMapGroupBuilder.MapBuilder<String, SingleRule>> indexToRoleToRule = new HashMap<>();
 
-                DeduplicatingCompactSubSetBuilder<String> roleSetBuilder = new DeduplicatingCompactSubSetBuilder<>(
-                        roles.getCEntries().keySet()
-                );
-                CompactMapGroupBuilder<String, SingleRule> roleMapBuilder =
-                        new CompactMapGroupBuilder<>(roles.getCEntries().keySet());
-                Map<String, DeduplicatingCompactSubSetBuilder.SubSetBuilder<String>> indexToRoleWithoutRule =
-                        new HashMap<>();
-                Map<String, CompactMapGroupBuilder.MapBuilder<String, SingleRule>> indexToRoleToRule = new HashMap<>();
+            for (Map.Entry<String, RoleV7> entry : roles.getCEntries().entrySet()) {
+                try {
+                    String roleName = entry.getKey();
+                    RoleV7 role = entry.getValue();
 
-                for (Map.Entry<String, RoleV7> entry : roles.getCEntries().entrySet()) {
-                    try {
-                        String roleName = entry.getKey();
-                        RoleV7 role = entry.getValue();
+                    roleSetBuilder.next(roleName);
 
-                        roleSetBuilder.next(roleName);
+                    for (RoleV7.Index indexPermissions : role.getIndex_permissions()) {
+                        if (indexPermissions.getIndex_patterns().contains("*")) {
+                            // Wildcard index patterns are handled in the static IndexPermissions object.
+                            continue;
+                        }
 
-                        for (RoleV7.Index indexPermissions : role.getIndex_permissions()) {
-                            if (indexPermissions.getIndex_patterns().contains("*")) {
-                                // Wildcard index patterns are handled in the static IndexPermissions object.
-                                continue;
+                        WildcardMatcher indexMatcher = IndexPattern.from(indexPermissions.getIndex_patterns()).getStaticPattern();
+
+                        if (indexMatcher == WildcardMatcher.NONE) {
+                            // The pattern is likely blank because there are only dynamic patterns.
+                            // Dynamic index patterns are not handled here, but in the static IndexPermissions object
+                            continue;
+                        }
+
+                        SingleRule rule = this.roleToRule(indexPermissions);
+
+                        if (rule != null) {
+                            for (String index : indexMatcher.iterateMatching(indexMetadata.keySet())) {
+                                indexToRoleToRule.computeIfAbsent(index, k -> roleMapBuilder.createMapBuilder()).put(roleName, rule);
                             }
-
-                            WildcardMatcher indexMatcher = IndexPattern.from(indexPermissions.getIndex_patterns()).getStaticPattern();
-
-                            if (indexMatcher == WildcardMatcher.NONE) {
-                                // The pattern is likely blank because there are only dynamic patterns.
-                                // Dynamic index patterns are not handled here, but in the static IndexPermissions object
-                                continue;
-                            }
-
-                            SingleRule rule = this.roleToRule(indexPermissions);
-
-                            if (rule != null) {
-                                for (String index : indexMatcher.iterateMatching(indexMetadata.keySet())) {
-                                    indexToRoleToRule.computeIfAbsent(index, k -> roleMapBuilder.createMapBuilder()).put(roleName, rule);
-                                }
-                            } else {
-                                for (String index : indexMatcher.iterateMatching(indexMetadata.keySet())) {
-                                    indexToRoleWithoutRule.computeIfAbsent(index, k -> roleSetBuilder.createSubSetBuilder()).add(roleName);
-                                }
+                        } else {
+                            for (String index : indexMatcher.iterateMatching(indexMetadata.keySet())) {
+                                indexToRoleWithoutRule.computeIfAbsent(index, k -> roleSetBuilder.createSubSetBuilder()).add(roleName);
                             }
                         }
-                    } catch (Exception e) {
-                        log.error("Unexpected exception while processing role: {}\nIgnoring role.", entry, e);
                     }
+                } catch (Exception e) {
+                    log.error("Unexpected exception while processing role: {}\nIgnoring role.", entry, e);
                 }
-
-                DeduplicatingCompactSubSetBuilder.Completed<String> completed = roleSetBuilder.build();
-
-                this.indexToRoleToRule = indexToRoleToRule.entrySet()
-                        .stream()
-                        .collect(
-                                ImmutableMap.toImmutableMap(
-                                        entry -> entry.getKey(),
-                                        entry -> entry.getValue().build()
-                                )
-                        );
-                this.indexToRoleWithoutRule = indexToRoleWithoutRule.entrySet()
-                        .stream()
-                        .collect(
-                                ImmutableMap.toImmutableMap(
-                                        entry -> entry.getKey(),
-                                        entry -> entry.getValue().build(completed)
-                                )
-                        );
-
             }
 
-            protected SingleRule roleToRule(RoleV7.Index rolePermissions) throws PrivilegesConfigurationValidationException {
-                return this.roleToRuleFunction.apply(rolePermissions);
-            }
+            DeduplicatingCompactSubSetBuilder.Completed<String> completed = roleSetBuilder.build();
+
+            this.indexToRoleToRule = indexToRoleToRule.entrySet()
+                .stream()
+                .collect(ImmutableMap.toImmutableMap(entry -> entry.getKey(), entry -> entry.getValue().build()));
+            this.indexToRoleWithoutRule = indexToRoleWithoutRule.entrySet()
+                .stream()
+                .collect(ImmutableMap.toImmutableMap(entry -> entry.getKey(), entry -> entry.getValue().build(completed)));
+
+        }
+
+        protected SingleRule roleToRule(RoleV7.Index rolePermissions) throws PrivilegesConfigurationValidationException {
+            return this.roleToRuleFunction.apply(rolePermissions);
+        }
 
         boolean covers(String index) {
             return this.indexMetadata.get(index) != null;
         }
-
-
-
 
     }
 

@@ -7,20 +7,18 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Set;
 
 import com.fasterxml.jackson.core.JsonFactory;
-import com.google.common.collect.ImmutableSet;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.StoredFieldVisitor;
 
-
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
 import org.opensearch.OpenSearchException;
-import org.opensearch.indices.IndicesModule;
 
 /**
  * Applies FLS and field masking while reading documents
@@ -34,21 +32,27 @@ import org.opensearch.indices.IndicesModule;
 public class FlsStoredFieldVisitor extends StoredFieldVisitor {
     private static final Logger log = LogManager.getLogger(FlsStoredFieldVisitor.class);
 
-
     private static final JsonFactory JSON_FACTORY = new JsonFactory();
 
     private final StoredFieldVisitor delegate;
     private final FieldPrivileges.FlsRule flsRule;
     private final FieldMasking.FieldMaskingRule fieldMaskingRule;
+    private final Set<String> metaFields;
 
-    public FlsStoredFieldVisitor(StoredFieldVisitor delegate, FieldPrivileges.FlsRule  flsRule, FieldMasking.FieldMaskingRule fieldMaskingRule) {
+    public FlsStoredFieldVisitor(
+        StoredFieldVisitor delegate,
+        FieldPrivileges.FlsRule flsRule,
+        FieldMasking.FieldMaskingRule fieldMaskingRule,
+        Set<String> metaFields
+    ) {
         super();
         this.delegate = delegate;
         this.flsRule = flsRule;
         this.fieldMaskingRule = fieldMaskingRule;
+        this.metaFields = metaFields;
 
         if (log.isDebugEnabled()) {
-            log.debug("Created FlsStoredFieldVisitor for {}; {}",flsRule, fieldMaskingRule);
+            log.debug("Created FlsStoredFieldVisitor for {}; {}", flsRule, fieldMaskingRule);
         }
     }
 
@@ -58,13 +62,13 @@ public class FlsStoredFieldVisitor extends StoredFieldVisitor {
         if (fieldInfo.name.equals("_source")) {
             try {
                 // TODO
-                //if (delegate instanceof MaskedFieldsConsumer) {
-                //    ((MaskedFieldsConsumer) delegate).binaryMaskedField(fieldInfo,
-                //            DocumentFilter.filter(Format.JSON, value, flsRule, fieldMaskingRule),
-                //            (f) -> fieldMaskingRule != null && fieldMaskingRule.get(f) != null);
-                //} else {
-                    delegate.binaryField(fieldInfo, DocumentFilter.filter(JSON_FACTORY, value, flsRule, fieldMaskingRule));
-                //}
+                // if (delegate instanceof MaskedFieldsConsumer) {
+                // ((MaskedFieldsConsumer) delegate).binaryMaskedField(fieldInfo,
+                // DocumentFilter.filter(Format.JSON, value, flsRule, fieldMaskingRule),
+                // (f) -> fieldMaskingRule != null && fieldMaskingRule.get(f) != null);
+                // } else {
+                delegate.binaryField(fieldInfo, DocumentFilter.filter(JSON_FACTORY, value, flsRule, fieldMaskingRule, metaFields));
+                // }
 
             } catch (IOException e) {
                 throw new OpenSearchException("Cannot filter source of document", e);
@@ -76,7 +80,7 @@ public class FlsStoredFieldVisitor extends StoredFieldVisitor {
 
     @Override
     public Status needsField(FieldInfo fieldInfo) throws IOException {
-        return DlsFlsBaseContext.isMetaField(fieldInfo.name) || flsRule.isAllowed(fieldInfo.name) ? delegate.needsField(fieldInfo) : Status.NO;
+        return metaFields.contains(fieldInfo.name) || flsRule.isAllowed(fieldInfo.name) ? delegate.needsField(fieldInfo) : Status.NO;
     }
 
     @Override
@@ -119,19 +123,29 @@ public class FlsStoredFieldVisitor extends StoredFieldVisitor {
     }
 
     static class DocumentFilter {
-        public static byte[] filter(JsonFactory jsonFactory, byte[] bytes, FieldPrivileges.FlsRule flsRule, FieldMasking.FieldMaskingRule fieldMaskingRule)
-                throws  IOException {
+        public static byte[] filter(
+            JsonFactory jsonFactory,
+            byte[] bytes,
+            FieldPrivileges.FlsRule flsRule,
+            FieldMasking.FieldMaskingRule fieldMaskingRule,
+            Set<String> metaFields
+        ) throws IOException {
             try (InputStream in = new ByteArrayInputStream(bytes); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-                filter(jsonFactory, in, out, flsRule, fieldMaskingRule);
+                filter(jsonFactory, in, out, flsRule, fieldMaskingRule, metaFields);
                 return out.toByteArray();
             }
         }
 
-        public static void filter(JsonFactory jsonFactory, InputStream in, OutputStream out, FieldPrivileges.FlsRule flsRule, FieldMasking.FieldMaskingRule fieldMaskingRule)
-                throws  IOException {
-            try (JsonParser parser = jsonFactory.createParser(in);
-                 JsonGenerator generator = jsonFactory.createGenerator(out)) {
-                new DocumentFilter(parser, generator, flsRule, fieldMaskingRule).copy();
+        public static void filter(
+            JsonFactory jsonFactory,
+            InputStream in,
+            OutputStream out,
+            FieldPrivileges.FlsRule flsRule,
+            FieldMasking.FieldMaskingRule fieldMaskingRule,
+            Set<String> metaFields
+        ) throws IOException {
+            try (JsonParser parser = jsonFactory.createParser(in); JsonGenerator generator = jsonFactory.createGenerator(out)) {
+                new DocumentFilter(parser, generator, flsRule, fieldMaskingRule, metaFields).copy();
             }
         }
 
@@ -139,16 +153,24 @@ public class FlsStoredFieldVisitor extends StoredFieldVisitor {
         private final JsonGenerator generator;
         private final FieldPrivileges.FlsRule flsRule;
         private final FieldMasking.FieldMaskingRule fieldMaskingRule;
+        private final Set<String> metaFields;
         private String currentName;
         private String fullCurrentName;
         private String fullParentName;
         private Deque<String> nameStack = new ArrayDeque<>();
 
-        DocumentFilter(JsonParser parser, JsonGenerator generator, FieldPrivileges.FlsRule flsRule, FieldMasking.FieldMaskingRule fieldMaskingRule) {
+        DocumentFilter(
+            JsonParser parser,
+            JsonGenerator generator,
+            FieldPrivileges.FlsRule flsRule,
+            FieldMasking.FieldMaskingRule fieldMaskingRule,
+            Set<String> metaFields
+        ) {
             this.parser = parser;
             this.generator = generator;
             this.flsRule = flsRule;
             this.fieldMaskingRule = fieldMaskingRule;
+            this.metaFields = metaFields;
         }
 
         @SuppressWarnings("incomplete-switch")
@@ -156,7 +178,7 @@ public class FlsStoredFieldVisitor extends StoredFieldVisitor {
             boolean skipNext = false;
 
             for (JsonToken token = parser.currentToken() != null ? parser.currentToken() : parser.nextToken(); token != null; token = parser
-                    .nextToken()) {
+                .nextToken()) {
 
                 if (!skipNext) {
                     switch (token) {
@@ -188,9 +210,11 @@ public class FlsStoredFieldVisitor extends StoredFieldVisitor {
 
                         case FIELD_NAME:
                             this.currentName = parser.currentName();
-                            this.fullCurrentName = this.fullParentName == null ? this.currentName : this.fullParentName + "." + this.currentName;
+                            this.fullCurrentName = this.fullParentName == null
+                                ? this.currentName
+                                : this.fullParentName + "." + this.currentName;
 
-                            if (DlsFlsBaseContext.isMetaField(fullCurrentName) || flsRule.isAllowed(fullCurrentName)) {
+                            if (metaFields.contains(fullCurrentName) || flsRule.isAllowed(fullCurrentName)) {
                                 generator.writeFieldName(parser.currentName());
                             } else {
                                 skipNext = true;

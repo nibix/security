@@ -111,8 +111,6 @@ public class SecurityIndexSearcherWrapper implements CheckedFunction<DirectoryRe
     @Override
     public final DirectoryReader apply(DirectoryReader reader) throws IOException {
 
-        log.error("**** " + isAdminAuthenticatedOrInternalRequest());
-
         if (isSecurityIndexRequest() && !isAdminAuthenticatedOrInternalRequest()) {
             return new EmptyFilterLeafReader.EmptyDirectoryReader(reader);
         }
@@ -124,8 +122,6 @@ public class SecurityIndexSearcherWrapper implements CheckedFunction<DirectoryRe
             log.warn("search action for {} is not allowed for a non adminDN user", index.getName());
             return new EmptyFilterLeafReader.EmptyDirectoryReader(reader);
         }
-
-        log.error("ääää");
 
         return dlsFlsWrap(reader, isAdminAuthenticatedOrInternalRequest());
     }

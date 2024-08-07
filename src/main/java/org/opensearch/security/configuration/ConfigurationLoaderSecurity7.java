@@ -137,7 +137,7 @@ public class ConfigurationLoaderSecurity7 {
                     failure == null ? null : failure.getMessage(),
                     Arrays.toString(events),
                     securityIndex,
-                        failure.getFailure()
+                    failure.getFailure()
                 );
             }
 

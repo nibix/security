@@ -150,12 +150,18 @@ public class PrivilegesEvaluationContext {
 
     @Override
     public String toString() {
-        return "PrivilegesEvaluationContext{" +
-                "user=" + user +
-                ", action='" + action + '\'' +
-                ", request=" + request +
-                ", resolvedRequest=" + resolvedRequest +
-                ", mappedRoles=" + mappedRoles +
-                '}';
+        return "PrivilegesEvaluationContext{"
+            + "user="
+            + user
+            + ", action='"
+            + action
+            + '\''
+            + ", request="
+            + request
+            + ", resolvedRequest="
+            + resolvedRequest
+            + ", mappedRoles="
+            + mappedRoles
+            + '}';
     }
 }

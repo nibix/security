@@ -15,12 +15,10 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
-import com.google.common.collect.Sets;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.DirectoryReader;
@@ -44,12 +42,9 @@ import org.opensearch.security.privileges.PrivilegesEvaluator;
 import org.opensearch.security.privileges.dlsfls.DlsFlsBaseContext;
 import org.opensearch.security.privileges.dlsfls.DlsFlsProcessedConfig;
 import org.opensearch.security.privileges.dlsfls.DlsRestriction;
-import org.opensearch.security.privileges.dlsfls.DocumentPrivileges;
 import org.opensearch.security.privileges.dlsfls.FieldMasking;
 import org.opensearch.security.privileges.dlsfls.FieldPrivileges;
 import org.opensearch.security.support.ConfigConstants;
-import org.opensearch.security.support.HeaderHelper;
-import org.opensearch.security.support.SecurityUtils;
 
 // TODO https://github.com/opensearch-project/security/pull/4370
 public class SecurityFlsDlsIndexSearcherWrapper extends SecurityIndexSearcherWrapper {
@@ -68,16 +63,16 @@ public class SecurityFlsDlsIndexSearcherWrapper extends SecurityIndexSearcherWra
     private final DlsFlsBaseContext dlsFlsBaseContext;
 
     public SecurityFlsDlsIndexSearcherWrapper(
-            final IndexService indexService,
-            final Settings settings,
-            final AdminDNs adminDNs,
-            final ClusterService clusterService,
-            final AuditLog auditlog,
-            final ComplianceIndexingOperationListener ciol,
-            final PrivilegesEvaluator evaluator,
-            final Supplier<DlsFlsProcessedConfig> dlsFlsProcessedConfigSupplier,
-            final DlsFlsBaseContext dlsFlsBaseContext
-            ) {
+        final IndexService indexService,
+        final Settings settings,
+        final AdminDNs adminDNs,
+        final ClusterService clusterService,
+        final AuditLog auditlog,
+        final ComplianceIndexingOperationListener ciol,
+        final PrivilegesEvaluator evaluator,
+        final Supplier<DlsFlsProcessedConfig> dlsFlsProcessedConfigSupplier,
+        final DlsFlsBaseContext dlsFlsBaseContext
+    ) {
         super(indexService, settings, adminDNs, evaluator);
         Set<String> metadataFieldsCopy;
         if (indexService.getMetadata().getState() == IndexMetadata.State.CLOSE) {
@@ -117,19 +112,18 @@ public class SecurityFlsDlsIndexSearcherWrapper extends SecurityIndexSearcherWra
         final ShardId shardId = ShardUtils.extractShardId(reader);
         PrivilegesEvaluationContext privilegesEvaluationContext = this.dlsFlsBaseContext.getPrivilegesEvaluationContext();
 
-        log.error("### " + privilegesEvaluationContext);
-
         if (isAdmin || privilegesEvaluationContext == null) {
             return new DlsFlsFilterLeafReader.DlsFlsDirectoryReader(
-                    reader,
-                    FieldPrivileges.FlsRule.ALLOW_ALL,
-                    null,
-                    indexService,
-                    threadContext,
-                    clusterService,
-                    auditlog,
-                    FieldMasking.FieldMaskingRule.ALLOW_ALL,
-                    shardId
+                reader,
+                FieldPrivileges.FlsRule.ALLOW_ALL,
+                null,
+                indexService,
+                threadContext,
+                clusterService,
+                auditlog,
+                FieldMasking.FieldMaskingRule.ALLOW_ALL,
+                shardId,
+                metaFields
             );
         }
 
@@ -156,22 +150,35 @@ public class SecurityFlsDlsIndexSearcherWrapper extends SecurityIndexSearcherWra
                 dlsQuery = new ConstantScoreQuery(dlsRestriction.toBooleanQueryBuilder(queryShardContext, null).build());
             }
 
-            log.error("dlsFlsWrap(); index: {}; dlsRestriction: {}; flsRule: {}; fmRule: {}", index.getName(), dlsRestriction, flsRule, fmRule);
+            log.error(
+                "dlsFlsWrap(); index: {}; dlsRestriction: {}; flsRule: {}; fmRule: {}",
+                index.getName(),
+                dlsRestriction,
+                flsRule,
+                fmRule
+            );
 
             if (log.isTraceEnabled()) {
-                log.trace("dlsFlsWrap(); index: {}; dlsRestriction: {}; flsRule: {}; fmRule: {}", index.getName(), dlsRestriction, flsRule, fmRule);
+                log.trace(
+                    "dlsFlsWrap(); index: {}; dlsRestriction: {}; flsRule: {}; fmRule: {}",
+                    index.getName(),
+                    dlsRestriction,
+                    flsRule,
+                    fmRule
+                );
             }
 
             return new DlsFlsFilterLeafReader.DlsFlsDirectoryReader(
-                    reader,
-                    flsRule,
-                    dlsQuery,
-                    indexService,
-                    threadContext,
-                    clusterService,
-                    auditlog,
-                    fmRule,
-                    shardId
+                reader,
+                flsRule,
+                dlsQuery,
+                indexService,
+                threadContext,
+                clusterService,
+                auditlog,
+                fmRule,
+                shardId,
+                metaFields
             );
 
         } catch (PrivilegesEvaluationException e) {

@@ -10,8 +10,11 @@
  */
 package org.opensearch.security.privileges.dlsfls;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Function;
+
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
@@ -20,16 +23,13 @@ import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.ToChildBlockJoinQuery;
+
 import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.ParsedQuery;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.security.queries.QueryBuilderTraverser;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.function.Function;
 
 /**
  * Represents the DlsRestriction for a particular index. Internally, the DLS restriction is realized by boolean queries,
@@ -43,13 +43,14 @@ public class DlsRestriction extends AbstractRuleBasedPrivileges.Rule {
     private static final Query NON_NESTED_QUERY;
 
     static {
-        // Moved from https://github.com/opensearch-project/security/blob/main/src/main/java/org/opensearch/security/configuration/DlsQueryParser.java
+        // Moved from
+        // https://github.com/opensearch-project/security/blob/main/src/main/java/org/opensearch/security/configuration/DlsQueryParser.java
         // Match all documents but not the nested ones
         // Nested document types start with __
         // https://discuss.elastic.co/t/whats-nested-documents-layout-inside-the-lucene/59944/9
         NON_NESTED_QUERY = new BooleanQuery.Builder().add(new MatchAllDocsQuery(), BooleanClause.Occur.FILTER)
-                .add(new PrefixQuery(new Term("_type", "__")), BooleanClause.Occur.MUST_NOT)
-                .build();
+            .add(new PrefixQuery(new Term("_type", "__")), BooleanClause.Occur.MUST_NOT)
+            .build();
     }
 
     private final ImmutableList<QueryBuilder> queries;
@@ -63,7 +64,10 @@ public class DlsRestriction extends AbstractRuleBasedPrivileges.Rule {
         return this.queries.isEmpty();
     }
 
-    public org.apache.lucene.search.BooleanQuery.Builder toBooleanQueryBuilder(QueryShardContext queryShardContext, Function<Query, Query> queryMapFunction) {
+    public org.apache.lucene.search.BooleanQuery.Builder toBooleanQueryBuilder(
+        QueryShardContext queryShardContext,
+        Function<Query, Query> queryMapFunction
+    ) {
         if (this.queries.isEmpty()) {
             return null;
         }
@@ -94,8 +98,10 @@ public class DlsRestriction extends AbstractRuleBasedPrivileges.Rule {
 
     public boolean containsTermLookupQuery() {
         for (QueryBuilder queryBuilder : this.queries) {
-            if (QueryBuilderTraverser.exists(queryBuilder,
-                    (q) -> (q instanceof TermsQueryBuilder) && ((TermsQueryBuilder) q).termsLookup() != null)) {
+            if (QueryBuilderTraverser.exists(
+                queryBuilder,
+                (q) -> (q instanceof TermsQueryBuilder) && ((TermsQueryBuilder) q).termsLookup() != null
+            )) {
                 return true;
             }
         }

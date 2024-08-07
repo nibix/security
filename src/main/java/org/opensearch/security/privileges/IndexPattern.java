@@ -1,16 +1,17 @@
 package org.opensearch.security.privileges;
 
-import com.google.common.collect.ImmutableList;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.opensearch.cluster.metadata.IndexAbstraction;
-import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
-import org.opensearch.security.support.WildcardMatcher;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+
+import com.google.common.collect.ImmutableList;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import org.opensearch.cluster.metadata.IndexAbstraction;
+import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
+import org.opensearch.security.support.WildcardMatcher;
 
 /**
  * Aggregates index patterns defined in roles and segments them into patterns using template expressions ("index_${user.name}"),
@@ -34,11 +35,12 @@ public class IndexPattern {
         this.staticPattern = staticPattern;
         this.patternTemplates = patternTemplates;
         this.dateMathExpressions = dateMathExpressions;
-        this.hashCode = (staticPattern != null ? staticPattern.hashCode() : 0) + patternTemplates.hashCode() + dateMathExpressions.hashCode();
+        this.hashCode = (staticPattern != null ? staticPattern.hashCode() : 0) + patternTemplates.hashCode() + dateMathExpressions
+            .hashCode();
     }
 
     public boolean matches(String index, PrivilegesEvaluationContext context, Map<String, IndexAbstraction> indexMetadata)
-            throws PrivilegesEvaluationException {
+        throws PrivilegesEvaluationException {
         if (staticPattern != null && staticPattern.test(index)) {
             return true;
         }
@@ -143,14 +145,18 @@ public class IndexPattern {
     }
 
     public boolean isEmpty() {
-        return (staticPattern == null || staticPattern == WildcardMatcher.NONE) && this.patternTemplates.isEmpty() && this.dateMathExpressions.isEmpty();
+        return (staticPattern == null || staticPattern == WildcardMatcher.NONE)
+            && this.patternTemplates.isEmpty()
+            && this.dateMathExpressions.isEmpty();
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof IndexPattern that)) return false;
-        return Objects.equals(staticPattern, that.staticPattern) && Objects.equals(patternTemplates, that.patternTemplates) && Objects.equals(dateMathExpressions, that.dateMathExpressions);
+        return Objects.equals(staticPattern, that.staticPattern)
+            && Objects.equals(patternTemplates, that.patternTemplates)
+            && Objects.equals(dateMathExpressions, that.dateMathExpressions);
     }
 
     @Override
@@ -186,9 +192,9 @@ public class IndexPattern {
 
         IndexPattern build() {
             return new IndexPattern(
-                    WildcardMatcher.from(constantPatterns),
-                    ImmutableList.copyOf(patternTemplates),
-                    ImmutableList.copyOf(dateMathExpressions)
+                WildcardMatcher.from(constantPatterns),
+                ImmutableList.copyOf(patternTemplates),
+                ImmutableList.copyOf(dateMathExpressions)
             );
         }
     }

@@ -153,7 +153,6 @@ import org.opensearch.security.configuration.ConfigurationRepository;
 import org.opensearch.security.configuration.DlsFlsRequestValve;
 import org.opensearch.security.configuration.DlsFlsValveImpl;
 import org.opensearch.security.configuration.PrivilegesInterceptorImpl;
-import org.opensearch.security.configuration.Salt;
 import org.opensearch.security.configuration.SecurityFlsDlsIndexSearcherWrapper;
 import org.opensearch.security.dlic.rest.api.Endpoint;
 import org.opensearch.security.dlic.rest.api.SecurityRestApiActions;
@@ -182,8 +181,6 @@ import org.opensearch.security.rest.SecurityWhoAmIAction;
 import org.opensearch.security.rest.TenantInfoAction;
 import org.opensearch.security.securityconf.DynamicConfigFactory;
 import org.opensearch.security.securityconf.impl.CType;
-import org.opensearch.security.securityconf.impl.SecurityDynamicConfiguration;
-import org.opensearch.security.securityconf.impl.v7.RoleV7;
 import org.opensearch.security.setting.OpensearchDynamicSetting;
 import org.opensearch.security.setting.TransportPassiveAuthSetting;
 import org.opensearch.security.ssl.ExternalSecurityKeyStore;
@@ -709,8 +706,8 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
                     auditLog,
                     ciol,
                     evaluator,
-                        dlsFlsValve::getCurrentConfig,
-                        dlsFlsBaseContext
+                    dlsFlsValve::getCurrentConfig,
+                    dlsFlsBaseContext
                 )
             );
             indexModule.forceQueryCacheProvider((indexSettings, nodeCache) -> new QueryCache() {
@@ -1134,17 +1131,15 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
             dlsFlsValve = new DlsFlsRequestValve.NoopDlsFlsRequestValve();
         } else {
             dlsFlsValve = new DlsFlsValveImpl(
-                    settings,
-                    localClient,
-                    clusterService,
-                    resolver,
-                    xContentRegistry,
-                    threadPool.getThreadContext(),
-                    dlsFlsBaseContext
+                settings,
+                localClient,
+                clusterService,
+                resolver,
+                xContentRegistry,
+                threadPool.getThreadContext(),
+                dlsFlsBaseContext
             );
-            cr.subscribeOnChange(configMap -> {
-                ((DlsFlsValveImpl) dlsFlsValve).updateConfiguration(cr.getConfiguration(CType.ROLES));
-            });
+            cr.subscribeOnChange(configMap -> { ((DlsFlsValveImpl) dlsFlsValve).updateConfiguration(cr.getConfiguration(CType.ROLES)); });
         }
 
         sf = new SecurityFilter(settings, evaluator, adminDns, dlsFlsValve, auditLog, threadPool, cs, compatConfig, irr, xffResolver);

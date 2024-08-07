@@ -1,7 +1,10 @@
 package org.opensearch.security.privileges.dlsfls;
 
-import com.google.common.collect.ImmutableMap;
-import org.opensearch.OpenSearchException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+
 import org.opensearch.cluster.metadata.IndexAbstraction;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.json.JsonXContent;
@@ -17,23 +20,22 @@ import org.opensearch.security.privileges.UserAttributes;
 import org.opensearch.security.securityconf.impl.SecurityDynamicConfiguration;
 import org.opensearch.security.securityconf.impl.v7.RoleV7;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 public class DocumentPrivileges extends AbstractRuleBasedPrivileges<DocumentPrivileges.DlsQuery, DlsRestriction> {
 
     private final NamedXContentRegistry xContentRegistry;
 
-    public DocumentPrivileges(SecurityDynamicConfiguration<RoleV7> roles, Map<String, IndexAbstraction> indexMetadata, NamedXContentRegistry xContentRegistry, Settings settings) {
+    public DocumentPrivileges(
+        SecurityDynamicConfiguration<RoleV7> roles,
+        Map<String, IndexAbstraction> indexMetadata,
+        NamedXContentRegistry xContentRegistry,
+        Settings settings
+    ) {
         super(roles, indexMetadata, (rolePermissions) -> roleToRule(rolePermissions, xContentRegistry), settings);
         this.xContentRegistry = xContentRegistry;
     }
 
-    static DlsQuery roleToRule(RoleV7.Index rolePermissions, NamedXContentRegistry xContentRegistry) throws PrivilegesConfigurationValidationException {
+    static DlsQuery roleToRule(RoleV7.Index rolePermissions, NamedXContentRegistry xContentRegistry)
+        throws PrivilegesConfigurationValidationException {
         String dlsQueryTemplate = rolePermissions.getDls();
 
         if (dlsQueryTemplate != null) {
@@ -58,7 +60,7 @@ public class DocumentPrivileges extends AbstractRuleBasedPrivileges<DocumentPriv
         List<QueryBuilder> renderedQueries = new ArrayList<>(rules.size());
 
         for (DlsQuery query : rules) {
-                renderedQueries.add(query.evaluate(context));
+            renderedQueries.add(query.evaluate(context));
         }
 
         return new DlsRestriction(renderedQueries);
@@ -97,7 +99,8 @@ public class DocumentPrivileges extends AbstractRuleBasedPrivileges<DocumentPriv
             return true;
         }
 
-        static DlsQuery create(String queryString, NamedXContentRegistry xContentRegistry) throws PrivilegesConfigurationValidationException {
+        static DlsQuery create(String queryString, NamedXContentRegistry xContentRegistry)
+            throws PrivilegesConfigurationValidationException {
             if (queryString.contains("${")) {
                 return new DlsQuery.Dynamic(queryString, xContentRegistry);
             } else {
@@ -111,8 +114,11 @@ public class DocumentPrivileges extends AbstractRuleBasedPrivileges<DocumentPriv
             Constant(String queryString, NamedXContentRegistry xContentRegistry) throws PrivilegesConfigurationValidationException {
                 super(queryString);
                 try {
-                    XContentParser parser = JsonXContent.jsonXContent.createParser(xContentRegistry, DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                            queryString);
+                    XContentParser parser = JsonXContent.jsonXContent.createParser(
+                        xContentRegistry,
+                        DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                        queryString
+                    );
                     this.queryBuilder = AbstractQueryBuilder.parseInnerQueryBuilder(parser);
                 } catch (Exception e) {
                     throw new PrivilegesConfigurationValidationException("Invalid DLS query: " + queryString, e);
@@ -138,8 +144,11 @@ public class DocumentPrivileges extends AbstractRuleBasedPrivileges<DocumentPriv
                 String effectiveQueryString = UserAttributes.replaceProperties(this.queryString, context);
 
                 try {
-                    XContentParser parser = JsonXContent.jsonXContent.createParser(xContentRegistry, DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                            queryString);
+                    XContentParser parser = JsonXContent.jsonXContent.createParser(
+                        xContentRegistry,
+                        DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                        queryString
+                    );
                     return AbstractQueryBuilder.parseInnerQueryBuilder(parser);
                 } catch (Exception e) {
                     throw new PrivilegesEvaluationException("Invalid DLS query: " + effectiveQueryString, e);
@@ -147,6 +156,5 @@ public class DocumentPrivileges extends AbstractRuleBasedPrivileges<DocumentPriv
             }
         }
     }
-
 
 }

@@ -18,18 +18,10 @@ package org.opensearch.security.configuration;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
-import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.index.BinaryDocValues;
@@ -66,37 +58,22 @@ import org.apache.lucene.util.automaton.CompiledAutomaton;
 
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.lucene.index.SequentialStoredFieldsLeafReader;
 import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.common.xcontent.XContentHelper;
-import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.common.xcontent.support.XContentMapValues;
-import org.opensearch.core.common.bytes.BytesArray;
-import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.index.shard.ShardId;
-import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexService;
 import org.opensearch.security.auditlog.AuditLog;
 import org.opensearch.security.compliance.ComplianceConfig;
 import org.opensearch.security.compliance.FieldReadCallback;
-import org.opensearch.security.dlic.rest.support.Utils;
-import org.opensearch.security.privileges.dlsfls.DlsFlsBaseContext;
 import org.opensearch.security.privileges.dlsfls.FieldMasking;
 import org.opensearch.security.privileges.dlsfls.FieldPrivileges;
 import org.opensearch.security.privileges.dlsfls.FlsStoredFieldVisitor;
 import org.opensearch.security.support.ConfigConstants;
-import org.opensearch.security.support.HeaderHelper;
-import org.opensearch.security.support.MapUtils;
-import org.opensearch.security.support.SecurityUtils;
-import org.opensearch.security.support.WildcardMatcher;
 
 class DlsFlsFilterLeafReader extends SequentialStoredFieldsLeafReader {
 
     private static final String KEYWORD = ".keyword";
     private final FieldInfos flsFieldInfos;
-    private boolean canOptimize = true;
-    private Function<Map<String, ?>, Map<String, Object>> filterFunction;
     private final IndexService indexService;
     private final ThreadContext threadContext;
     private final ClusterService clusterService;
@@ -104,6 +81,7 @@ class DlsFlsFilterLeafReader extends SequentialStoredFieldsLeafReader {
     private final ShardId shardId;
     private final FieldPrivileges.FlsRule flsRule;
     private final FieldMasking.FieldMaskingRule fmRule;
+    private final Set<String> metaFields;
 
     private DlsGetEvaluator dge = null;
 
@@ -116,7 +94,8 @@ class DlsFlsFilterLeafReader extends SequentialStoredFieldsLeafReader {
         final ClusterService clusterService,
         final AuditLog auditlog,
         final FieldMasking.FieldMaskingRule fmRule,
-        final ShardId shardId
+        final ShardId shardId,
+        final Set<String> metaFields
     ) {
         super(delegate);
 
@@ -128,22 +107,23 @@ class DlsFlsFilterLeafReader extends SequentialStoredFieldsLeafReader {
         this.shardId = shardId;
         this.flsRule = flsRule;
         this.fmRule = fmRule;
+        this.metaFields = metaFields;
 
         try {
-                if (!flsRule.isAllowAll()) {
-                    FieldInfos originalFieldInfos = delegate.getFieldInfos();
-                    List<FieldInfo> restrictedFieldInfos = new ArrayList<>(originalFieldInfos.size());
+            if (!flsRule.isAllowAll()) {
+                FieldInfos originalFieldInfos = delegate.getFieldInfos();
+                List<FieldInfo> restrictedFieldInfos = new ArrayList<>(originalFieldInfos.size());
 
-                    for (FieldInfo fieldInfo : originalFieldInfos) {
-                        if (DlsFlsBaseContext.isMetaField(fieldInfo.name) || flsRule.isAllowed(fieldInfo.name)) {
-                            restrictedFieldInfos.add(fieldInfo);
-                        }
+                for (FieldInfo fieldInfo : originalFieldInfos) {
+                    if (metaFields.contains(fieldInfo.name) || flsRule.isAllowed(fieldInfo.name)) {
+                        restrictedFieldInfos.add(fieldInfo);
                     }
-
-                    this.flsFieldInfos = new FieldInfos(restrictedFieldInfos.toArray(new FieldInfo[restrictedFieldInfos.size()]));
-                } else {
-                    this.flsFieldInfos = delegate.getFieldInfos();
                 }
+
+                this.flsFieldInfos = new FieldInfos(restrictedFieldInfos.toArray(new FieldInfo[restrictedFieldInfos.size()]));
+            } else {
+                this.flsFieldInfos = delegate.getFieldInfos();
+            }
 
             dge = new DlsGetEvaluator(dlsQuery, in, applyDlsHere());
         } catch (IOException e) {
@@ -226,6 +206,7 @@ class DlsFlsFilterLeafReader extends SequentialStoredFieldsLeafReader {
         private final AuditLog auditlog;
         private final FieldMasking.FieldMaskingRule fmRule;
         private final ShardId shardId;
+        private final Set<String> metaFields;
 
         public DlsFlsSubReaderWrapper(
             final FieldPrivileges.FlsRule flsRule,
@@ -235,7 +216,8 @@ class DlsFlsFilterLeafReader extends SequentialStoredFieldsLeafReader {
             final ClusterService clusterService,
             final AuditLog auditlog,
             final FieldMasking.FieldMaskingRule fmRule,
-            ShardId shardId
+            ShardId shardId,
+            final Set<String> metaFields
         ) {
             this.flsRule = flsRule;
             this.dlsQuery = dlsQuery;
@@ -245,6 +227,7 @@ class DlsFlsFilterLeafReader extends SequentialStoredFieldsLeafReader {
             this.auditlog = auditlog;
             this.fmRule = fmRule;
             this.shardId = shardId;
+            this.metaFields = metaFields;
         }
 
         @Override
@@ -257,8 +240,9 @@ class DlsFlsFilterLeafReader extends SequentialStoredFieldsLeafReader {
                 threadContext,
                 clusterService,
                 auditlog,
-                    fmRule,
-                shardId
+                fmRule,
+                shardId,
+                metaFields
             );
         }
 
@@ -274,6 +258,7 @@ class DlsFlsFilterLeafReader extends SequentialStoredFieldsLeafReader {
         private final AuditLog auditlog;
         private final FieldMasking.FieldMaskingRule fmRule;
         private final ShardId shardId;
+        private final Set<String> metaFields;
 
         public DlsFlsDirectoryReader(
             final DirectoryReader in,
@@ -284,7 +269,8 @@ class DlsFlsFilterLeafReader extends SequentialStoredFieldsLeafReader {
             final ClusterService clusterService,
             final AuditLog auditlog,
             final FieldMasking.FieldMaskingRule fmRule,
-            ShardId shardId
+            ShardId shardId,
+            final Set<String> metaFields
         ) throws IOException {
             super(
                 in,
@@ -296,7 +282,8 @@ class DlsFlsFilterLeafReader extends SequentialStoredFieldsLeafReader {
                     clusterService,
                     auditlog,
                     fmRule,
-                    shardId
+                    shardId,
+                    metaFields
                 )
             );
             this.flsRule = flsRule;
@@ -307,20 +294,22 @@ class DlsFlsFilterLeafReader extends SequentialStoredFieldsLeafReader {
             this.auditlog = auditlog;
             this.fmRule = fmRule;
             this.shardId = shardId;
+            this.metaFields = metaFields;
         }
 
         @Override
         protected DirectoryReader doWrapDirectoryReader(final DirectoryReader in) throws IOException {
             return new DlsFlsDirectoryReader(
                 in,
-                    flsRule,
+                flsRule,
                 dlsQuery,
                 indexService,
                 threadContext,
                 clusterService,
                 auditlog,
-                    fmRule,
-                shardId
+                fmRule,
+                shardId,
+                metaFields
             );
         }
 
@@ -392,7 +381,7 @@ class DlsFlsFilterLeafReader extends SequentialStoredFieldsLeafReader {
             visitor = new ComplianceAwareStoredFieldVisitor(visitor);
         }
         if (!flsRule.isAllowAll() || !fmRule.isAllowAll()) {
-            visitor = new FlsStoredFieldVisitor(visitor, flsRule, fmRule);
+            visitor = new FlsStoredFieldVisitor(visitor, flsRule, fmRule, metaFields);
         }
         return visitor;
     }
@@ -421,7 +410,7 @@ class DlsFlsFilterLeafReader extends SequentialStoredFieldsLeafReader {
     }
 
     private boolean isAllowed(String fieldName) {
-        return DlsFlsBaseContext.isMetaField(fieldName) || flsRule.isAllowed(fieldName);
+        return this.metaFields.contains(fieldName) || flsRule.isAllowed(fieldName);
     }
 
     @Override
@@ -559,38 +548,38 @@ class DlsFlsFilterLeafReader extends SequentialStoredFieldsLeafReader {
             return binaryDocValues;
         }
 
-                return new BinaryDocValues() {
+        return new BinaryDocValues() {
 
-                    @Override
-                    public int nextDoc() throws IOException {
-                        return binaryDocValues.nextDoc();
-                    }
+            @Override
+            public int nextDoc() throws IOException {
+                return binaryDocValues.nextDoc();
+            }
 
-                    @Override
-                    public int docID() {
-                        return binaryDocValues.docID();
-                    }
+            @Override
+            public int docID() {
+                return binaryDocValues.docID();
+            }
 
-                    @Override
-                    public long cost() {
-                        return binaryDocValues.cost();
-                    }
+            @Override
+            public long cost() {
+                return binaryDocValues.cost();
+            }
 
-                    @Override
-                    public int advance(int target) throws IOException {
-                        return binaryDocValues.advance(target);
-                    }
+            @Override
+            public int advance(int target) throws IOException {
+                return binaryDocValues.advance(target);
+            }
 
-                    @Override
-                    public boolean advanceExact(int target) throws IOException {
-                        return binaryDocValues.advanceExact(target);
-                    }
+            @Override
+            public boolean advanceExact(int target) throws IOException {
+                return binaryDocValues.advanceExact(target);
+            }
 
-                    @Override
-                    public BytesRef binaryValue() throws IOException {
-                        return fmRuleField.apply(binaryDocValues.binaryValue());
-                    }
-                };
+            @Override
+            public BytesRef binaryValue() throws IOException {
+                return fmRuleField.apply(binaryDocValues.binaryValue());
+            }
+        };
 
     }
 
@@ -606,63 +595,63 @@ class DlsFlsFilterLeafReader extends SequentialStoredFieldsLeafReader {
             return sortedDocValues;
         }
 
-                return new SortedDocValues() {
+        return new SortedDocValues() {
 
-                    @Override
-                    public int lookupTerm(BytesRef key) throws IOException {
-                        return sortedDocValues.lookupTerm(key);
-                    }
+            @Override
+            public int lookupTerm(BytesRef key) throws IOException {
+                return sortedDocValues.lookupTerm(key);
+            }
 
-                    @Override
-                    public TermsEnum termsEnum() throws IOException {
-                        return new MaskedTermsEnum(sortedDocValues.termsEnum(), fmRuleField);
-                    }
+            @Override
+            public TermsEnum termsEnum() throws IOException {
+                return new MaskedTermsEnum(sortedDocValues.termsEnum(), fmRuleField);
+            }
 
-                    @Override
-                    public TermsEnum intersect(CompiledAutomaton automaton) throws IOException {
-                        return new MaskedTermsEnum(sortedDocValues.intersect(automaton), fmRuleField);
-                    }
+            @Override
+            public TermsEnum intersect(CompiledAutomaton automaton) throws IOException {
+                return new MaskedTermsEnum(sortedDocValues.intersect(automaton), fmRuleField);
+            }
 
-                    @Override
-                    public int nextDoc() throws IOException {
-                        return sortedDocValues.nextDoc();
-                    }
+            @Override
+            public int nextDoc() throws IOException {
+                return sortedDocValues.nextDoc();
+            }
 
-                    @Override
-                    public int docID() {
-                        return sortedDocValues.docID();
-                    }
+            @Override
+            public int docID() {
+                return sortedDocValues.docID();
+            }
 
-                    @Override
-                    public long cost() {
-                        return sortedDocValues.cost();
-                    }
+            @Override
+            public long cost() {
+                return sortedDocValues.cost();
+            }
 
-                    @Override
-                    public int advance(int target) throws IOException {
-                        return sortedDocValues.advance(target);
-                    }
+            @Override
+            public int advance(int target) throws IOException {
+                return sortedDocValues.advance(target);
+            }
 
-                    @Override
-                    public boolean advanceExact(int target) throws IOException {
-                        return sortedDocValues.advanceExact(target);
-                    }
+            @Override
+            public boolean advanceExact(int target) throws IOException {
+                return sortedDocValues.advanceExact(target);
+            }
 
-                    @Override
-                    public int ordValue() throws IOException {
-                        return sortedDocValues.ordValue();
-                    }
+            @Override
+            public int ordValue() throws IOException {
+                return sortedDocValues.ordValue();
+            }
 
-                    @Override
-                    public BytesRef lookupOrd(int ord) throws IOException {
-                        return fmRuleField.apply(sortedDocValues.lookupOrd(ord));
-                    }
+            @Override
+            public BytesRef lookupOrd(int ord) throws IOException {
+                return fmRuleField.apply(sortedDocValues.lookupOrd(ord));
+            }
 
-                    @Override
-                    public int getValueCount() {
-                        return sortedDocValues.getValueCount();
-                    }
-                };
+            @Override
+            public int getValueCount() {
+                return sortedDocValues.getValueCount();
+            }
+        };
 
     }
 
@@ -683,68 +672,68 @@ class DlsFlsFilterLeafReader extends SequentialStoredFieldsLeafReader {
             return sortedSetDocValues;
         }
 
-                return new SortedSetDocValues() {
+        return new SortedSetDocValues() {
 
-                    @Override
-                    public long lookupTerm(BytesRef key) throws IOException {
-                        return sortedSetDocValues.lookupTerm(key);
-                    }
+            @Override
+            public long lookupTerm(BytesRef key) throws IOException {
+                return sortedSetDocValues.lookupTerm(key);
+            }
 
-                    @Override
-                    public TermsEnum termsEnum() throws IOException {
-                        return new MaskedTermsEnum(sortedSetDocValues.termsEnum(), fmRuleField);
-                    }
+            @Override
+            public TermsEnum termsEnum() throws IOException {
+                return new MaskedTermsEnum(sortedSetDocValues.termsEnum(), fmRuleField);
+            }
 
-                    @Override
-                    public TermsEnum intersect(CompiledAutomaton automaton) throws IOException {
-                        return new MaskedTermsEnum(sortedSetDocValues.intersect(automaton), fmRuleField);
-                    }
+            @Override
+            public TermsEnum intersect(CompiledAutomaton automaton) throws IOException {
+                return new MaskedTermsEnum(sortedSetDocValues.intersect(automaton), fmRuleField);
+            }
 
-                    @Override
-                    public int nextDoc() throws IOException {
-                        return sortedSetDocValues.nextDoc();
-                    }
+            @Override
+            public int nextDoc() throws IOException {
+                return sortedSetDocValues.nextDoc();
+            }
 
-                    @Override
-                    public int docID() {
-                        return sortedSetDocValues.docID();
-                    }
+            @Override
+            public int docID() {
+                return sortedSetDocValues.docID();
+            }
 
-                    @Override
-                    public long cost() {
-                        return sortedSetDocValues.cost();
-                    }
+            @Override
+            public long cost() {
+                return sortedSetDocValues.cost();
+            }
 
-                    @Override
-                    public int advance(int target) throws IOException {
-                        return sortedSetDocValues.advance(target);
-                    }
+            @Override
+            public int advance(int target) throws IOException {
+                return sortedSetDocValues.advance(target);
+            }
 
-                    @Override
-                    public boolean advanceExact(int target) throws IOException {
-                        return sortedSetDocValues.advanceExact(target);
-                    }
+            @Override
+            public boolean advanceExact(int target) throws IOException {
+                return sortedSetDocValues.advanceExact(target);
+            }
 
-                    @Override
-                    public long nextOrd() throws IOException {
-                        return sortedSetDocValues.nextOrd();
-                    }
+            @Override
+            public long nextOrd() throws IOException {
+                return sortedSetDocValues.nextOrd();
+            }
 
-                    @Override
-                    public int docValueCount() {
-                        return sortedSetDocValues.docValueCount();
-                    }
+            @Override
+            public int docValueCount() {
+                return sortedSetDocValues.docValueCount();
+            }
 
-                    @Override
-                    public BytesRef lookupOrd(long ord) throws IOException {
-                        return fmRuleField.apply(sortedSetDocValues.lookupOrd(ord));
-                    }
+            @Override
+            public BytesRef lookupOrd(long ord) throws IOException {
+                return fmRuleField.apply(sortedSetDocValues.lookupOrd(ord));
+            }
 
-                    @Override
-                    public long getValueCount() {
-                        return sortedSetDocValues.getValueCount();
-                    }
-                };
+            @Override
+            public long getValueCount() {
+                return sortedSetDocValues.getValueCount();
+            }
+        };
 
     }
 

@@ -15,8 +15,8 @@ import java.util.Set;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.Iterables;
-
 import com.google.common.collect.Sets;
+
 import org.opensearch.security.user.User;
 
 /**
@@ -46,11 +46,12 @@ public class UserAttributes {
         return orig;
     }
 
-
     private static String replaceSecurityRoles(final String orig, PrivilegesEvaluationContext context) {
         String retVal = orig;
         if (orig.contains("${user.securityRoles}") || orig.contains("${user_securityRoles}")) {
-            final String commaSeparatedRoles = toQuotedCommaSeparatedString(Sets.union(context.getUser().getSecurityRoles(), context.getMappedRoles()));
+            final String commaSeparatedRoles = toQuotedCommaSeparatedString(
+                Sets.union(context.getUser().getSecurityRoles(), context.getMappedRoles())
+            );
             retVal = orig.replace("${user.securityRoles}", commaSeparatedRoles).replace("${user_securityRoles}", commaSeparatedRoles);
         }
         return retVal;
