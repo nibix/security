@@ -228,10 +228,10 @@ public class FieldMasking extends AbstractRuleBasedPrivileges<FieldMasking.Field
             }
 
             public byte[] apply(byte[] value) {
-                if (this.hashAlgorithm != null) {
-                    return customHash(value, this.hashAlgorithm);
-                } else if (expression.getRegexReplacements() != null) {
+                if (expression.getRegexReplacements() != null) {
                     return applyRegexReplacements(value, expression.getRegexReplacements());
+                } else if (this.hashAlgorithm != null) {
+                    return customHash(value, this.hashAlgorithm);
                 } else {
                     return blake2bHash(value);
                 }

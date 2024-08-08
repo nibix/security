@@ -18,7 +18,6 @@ import org.opensearch.security.securityconf.impl.v7.RoleV7;
 import org.opensearch.security.support.WildcardMatcher;
 
 public class FieldPrivileges extends AbstractRuleBasedPrivileges<FieldPrivileges.FlsRule, FieldPrivileges.FlsRule> {
-
     public FieldPrivileges(SecurityDynamicConfiguration<RoleV7> roles, Map<String, IndexAbstraction> indexMetadata, Settings settings) {
         super(roles, indexMetadata, FieldPrivileges::roleToRule, settings);
     }

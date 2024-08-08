@@ -168,6 +168,7 @@ import org.opensearch.security.http.XFFResolver;
 import org.opensearch.security.identity.NoopPluginSubject;
 import org.opensearch.security.identity.SecurityTokenManager;
 import org.opensearch.security.privileges.ActionPrivileges;
+import org.opensearch.security.privileges.PrivilegesEvaluationException;
 import org.opensearch.security.privileges.PrivilegesEvaluator;
 import org.opensearch.security.privileges.PrivilegesInterceptor;
 import org.opensearch.security.privileges.RestLayerPrivilegesEvaluator;
@@ -729,28 +730,18 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
 
                 @Override
                 public Weight doCache(Weight weight, QueryCachingPolicy policy) {
-                    @SuppressWarnings("unchecked")
-                    final Map<String, Set<String>> allowedFlsFields = (Map<String, Set<String>>) HeaderHelper.deserializeSafeFromHeader(
-                        threadPool.getThreadContext(),
-                        ConfigConstants.OPENDISTRO_SECURITY_FLS_FIELDS_HEADER
-                    );
-
-                    if (SecurityUtils.evalMap(allowedFlsFields, index().getName()) != null) {
-                        return weight;
-                    } else {
-                        @SuppressWarnings("unchecked")
-                        final Map<String, Set<String>> maskedFieldsMap = (Map<String, Set<String>>) HeaderHelper.deserializeSafeFromHeader(
-                            threadPool.getThreadContext(),
-                            ConfigConstants.OPENDISTRO_SECURITY_MASKED_FIELD_HEADER
-                        );
-
-                        if (SecurityUtils.evalMap(maskedFieldsMap, index().getName()) != null) {
+                    try {
+                        if (dlsFlsValve.hasFlsOrFieldMasking(index().getName())) {
+                            // Do not cache
                             return weight;
                         } else {
                             return nodeCache.doCache(weight, policy);
                         }
+                    } catch (PrivilegesEvaluationException e) {
+                        log.error("Error while evaluating FLS configuration", e);
+                        // We fall back to no caching
+                        return weight;
                     }
-
                 }
             });
 
@@ -823,17 +814,14 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
                         return;
                     }
 
-                    @SuppressWarnings("unchecked")
-                    final Map<String, Set<String>> maskedFieldsMap = (Map<String, Set<String>>) HeaderHelper.deserializeSafeFromHeader(
-                        threadPool.getThreadContext(),
-                        ConfigConstants.OPENDISTRO_SECURITY_MASKED_FIELD_HEADER
-                    );
-                    final String maskedEval = SecurityUtils.evalMap(maskedFieldsMap, indexModule.getIndex().getName());
-                    if (maskedEval != null) {
-                        final Set<String> mf = maskedFieldsMap.get(maskedEval);
-                        if (mf != null && !mf.isEmpty()) {
+                    try {
+                        if (dlsFlsValve.hasFieldMasking(indexModule.getIndex().getName())) {
                             dlsFlsValve.onQueryPhase(queryResult);
                         }
+                    } catch (PrivilegesEvaluationException e) {
+                        log.error("Error while evaluating field masking config", e);
+                        // It is safe to call the code nevertheless
+                        dlsFlsValve.onQueryPhase(queryResult);
                     }
                 }
             }.toListener());
@@ -2059,43 +2047,18 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
     @Override
     public Function<String, Predicate<String>> getFieldFilter() {
         return index -> {
-            if (threadPool == null) {
+            if (threadPool == null || dlsFlsValve == null) {
                 return field -> true;
             }
-            @SuppressWarnings("unchecked")
-            final Map<String, Set<String>> allowedFlsFields = (Map<String, Set<String>>) HeaderHelper.deserializeSafeFromHeader(
-                threadPool.getThreadContext(),
-                ConfigConstants.OPENDISTRO_SECURITY_FLS_FIELDS_HEADER
-            );
 
-            final String eval = SecurityUtils.evalMap(allowedFlsFields, index);
-
-            if (eval == null) {
-                return field -> true;
-            } else {
-
-                final Set<String> includesExcludes = allowedFlsFields.get(eval);
-                final Set<String> includesSet = new HashSet<>(includesExcludes.size());
-                final Set<String> excludesSet = new HashSet<>(includesExcludes.size());
-
-                for (final String incExc : includesExcludes) {
-                    final char firstChar = incExc.charAt(0);
-
-                    if (firstChar == '!' || firstChar == '~') {
-                        excludesSet.add(incExc.substring(1));
-                    } else {
-                        includesSet.add(incExc);
-                    }
+            return field -> {
+                try {
+                    return dlsFlsValve.isFieldAllowed(index, field);
+                } catch (PrivilegesEvaluationException e) {
+                    log.error("Error while evaluating FLS for {}.{}", index, field, e);
+                    return false;
                 }
-
-                if (!excludesSet.isEmpty()) {
-                    WildcardMatcher excludeMatcher = WildcardMatcher.from(excludesSet);
-                    return field -> !excludeMatcher.test(handleKeyword(field));
-                } else {
-                    WildcardMatcher includeMatcher = WildcardMatcher.from(includesSet);
-                    return field -> includeMatcher.test(handleKeyword(field));
-                }
-            }
+            };
         };
     }
 
@@ -2107,13 +2070,6 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
         );
         final SystemIndexDescriptor systemIndexDescriptor = new SystemIndexDescriptor(indexPattern, "Security index");
         return Collections.singletonList(systemIndexDescriptor);
-    }
-
-    private static String handleKeyword(final String field) {
-        if (field != null && field.endsWith(KEYWORD)) {
-            return field.substring(0, field.length() - KEYWORD.length());
-        }
-        return field;
     }
 
     @Override

@@ -82,7 +82,6 @@ public class DlsFilterLevelActionHandler {
         ClusterService clusterService,
         IndicesService indicesService,
         IndexNameExpressionResolver resolver,
-        DlsQueryParser dlsQueryParser,
         ThreadContext threadContext
     ) {
 
@@ -121,7 +120,6 @@ public class DlsFilterLevelActionHandler {
             clusterService,
             indicesService,
             resolver,
-            dlsQueryParser,
             threadContext
         ).handle();
     }
@@ -133,7 +131,6 @@ public class DlsFilterLevelActionHandler {
     private final Resolved resolved;
     private final boolean requiresIndexScoping;
     private final Client nodeClient;
-    private final DlsQueryParser dlsQueryParser;
     private final ClusterService clusterService;
     private final IndicesService indicesService;
     private final ThreadContext threadContext;
@@ -149,7 +146,6 @@ public class DlsFilterLevelActionHandler {
         ClusterService clusterService,
         IndicesService indicesService,
         IndexNameExpressionResolver resolver,
-        DlsQueryParser dlsQueryParser,
         ThreadContext threadContext
     ) {
         this.action = context.getAction();
@@ -160,7 +156,6 @@ public class DlsFilterLevelActionHandler {
         this.nodeClient = nodeClient;
         this.clusterService = clusterService;
         this.indicesService = indicesService;
-        this.dlsQueryParser = dlsQueryParser;
         this.threadContext = threadContext;
         this.resolver = resolver;
 

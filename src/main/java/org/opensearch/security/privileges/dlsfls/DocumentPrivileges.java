@@ -146,8 +146,7 @@ public class DocumentPrivileges extends AbstractRuleBasedPrivileges<DocumentPriv
                 try {
                     XContentParser parser = JsonXContent.jsonXContent.createParser(
                         xContentRegistry,
-                        DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                        queryString
+                        DeprecationHandler.THROW_UNSUPPORTED_OPERATION, effectiveQueryString
                     );
                     return AbstractQueryBuilder.parseInnerQueryBuilder(parser);
                 } catch (Exception e) {

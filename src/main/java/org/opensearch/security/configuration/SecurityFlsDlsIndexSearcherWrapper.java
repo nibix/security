@@ -36,6 +36,7 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.shard.ShardUtils;
 import org.opensearch.security.auditlog.AuditLog;
 import org.opensearch.security.compliance.ComplianceIndexingOperationListener;
+import org.opensearch.security.privileges.DocumentAllowList;
 import org.opensearch.security.privileges.PrivilegesEvaluationContext;
 import org.opensearch.security.privileges.PrivilegesEvaluationException;
 import org.opensearch.security.privileges.PrivilegesEvaluator;
@@ -112,6 +113,10 @@ public class SecurityFlsDlsIndexSearcherWrapper extends SecurityIndexSearcherWra
         final ShardId shardId = ShardUtils.extractShardId(reader);
         PrivilegesEvaluationContext privilegesEvaluationContext = this.dlsFlsBaseContext.getPrivilegesEvaluationContext();
 
+        if (log.isTraceEnabled()) {
+            log.trace("dlsFlsWrap(); index: {}; privilegeEvaluationContext: {}", index.getName(), privilegesEvaluationContext);
+        }
+
         if (isAdmin || privilegesEvaluationContext == null) {
             return new DlsFlsFilterLeafReader.DlsFlsDirectoryReader(
                 reader,
@@ -150,13 +155,13 @@ public class SecurityFlsDlsIndexSearcherWrapper extends SecurityIndexSearcherWra
                 dlsQuery = new ConstantScoreQuery(dlsRestriction.toBooleanQueryBuilder(queryShardContext, null).build());
             }
 
-            log.error(
-                "dlsFlsWrap(); index: {}; dlsRestriction: {}; flsRule: {}; fmRule: {}",
-                index.getName(),
-                dlsRestriction,
-                flsRule,
-                fmRule
-            );
+            DocumentAllowList documentAllowList = DocumentAllowList.get(threadContext);
+
+            if (documentAllowList.isEntryForIndexPresent(index.getName())  && (!flsRule.isAllowAll() || !fmRule.isAllowAll())) {
+                log.debug("Lifting FLS/FM for {} due to present document allowlist");
+                flsRule = FieldPrivileges.FlsRule.ALLOW_ALL;
+                fmRule = FieldMasking.FieldMaskingRule.ALLOW_ALL;
+            }
 
             if (log.isTraceEnabled()) {
                 log.trace(
