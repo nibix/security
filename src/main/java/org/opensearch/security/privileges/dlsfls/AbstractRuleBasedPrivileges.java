@@ -133,13 +133,14 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
      * Returns true if there are roles without a rule which imposes restrictions for the particular index.
      * Does consider rules with index wildcards ("*").
      */
-    public boolean isUnrestricted(PrivilegesEvaluationContext context, StatefulRules<SingleRule> statefulRules, String index)
+    public boolean isUnrestricted(PrivilegesEvaluationContext context, String index)
         throws PrivilegesEvaluationException {
         if (context.getMappedRoles().isEmpty()) {
             return false;
         }
 
-        if (CollectionUtils.containsAny(this.staticIndexRules.rolesWithIndexWildcardWithoutRule, context.getMappedRoles())) {
+        if (this.dfmEmptyOverwritesAll
+                && CollectionUtils.containsAny(this.staticIndexRules.rolesWithIndexWildcardWithoutRule, context.getMappedRoles())) {
             return true;
         }
 
@@ -150,7 +151,7 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
             return false;
         }
 
-        return isUnrestrictedExplicit(context, statefulRules, indexAbstraction);
+        return isUnrestrictedExplicit(context, this.statefulRules, indexAbstraction);
     }
 
     /**

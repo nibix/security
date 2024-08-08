@@ -234,11 +234,11 @@ public class FlsStoredFieldVisitor extends StoredFieldVisitor {
                             break;
 
                         case VALUE_NUMBER_FLOAT:
-                            generator.writeNumber(parser.getFloatValue());
+                            generator.writeNumber(parser.getDecimalValue());
                             break;
 
                         case VALUE_NUMBER_INT:
-                            generator.writeNumber(parser.getIntValue());
+                            generator.writeNumber(parser.getBigIntegerValue());
                             break;
 
                         case VALUE_STRING:

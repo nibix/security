@@ -103,7 +103,6 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
     private final ClusterService clusterService;
     private final ThreadContext threadContext;
     private final Mode mode;
-    private final DlsQueryParser dlsQueryParser;
     private final IndexNameExpressionResolver resolver;
     private final NamedXContentRegistry namedXContentRegistry;
     private final DlsFlsBaseContext dlsFlsBaseContext;
@@ -126,7 +125,6 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
         this.resolver = resolver;
         this.threadContext = threadContext;
         this.mode = Mode.get(settings);
-        this.dlsQueryParser = new DlsQueryParser(namedXContentRegistry);
         this.namedXContentRegistry = namedXContentRegistry;
         this.fieldMaskingConfig = FieldMasking.Config.fromSettings(settings);
         this.dlsFlsBaseContext = dlsFlsBaseContext;
@@ -196,6 +194,8 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
                 if (modeByHeader == Mode.FILTER_LEVEL) {
                     doFilterLevelDls = true;
                     log.debug("Doing filter-level DLS due to header");
+                    dlsRestrictionMap = config.getDocumentPrivileges()
+                            .getRestrictions(context, resolved.getAllIndicesResolved(clusterService, context.getIndexNameExpressionResolver()));
                 } else {
                     dlsRestrictionMap = config.getDocumentPrivileges()
                         .getRestrictions(context, resolved.getAllIndicesResolved(clusterService, context.getIndexNameExpressionResolver()));
@@ -371,7 +371,6 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
                     clusterService,
                     OpenSearchSecurityPlugin.GuiceHolder.getIndicesService(),
                     resolver,
-                    dlsQueryParser,
                     threadContext
                 );
             } else {
@@ -391,7 +390,20 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
     @Override
     public void handleSearchContext(SearchContext searchContext, ThreadPool threadPool, NamedXContentRegistry namedXContentRegistry) {
         try {
+            String index = searchContext.indexShard().indexSettings().getIndex().getName();
+
+            if (log.isTraceEnabled()) {
+                log.trace("handleSearchContext(); index: {}", index);
+            }
+
             if (searchContext.suggest() != null) {
+                return;
+            }
+
+            if (dlsFlsBaseContext.isDlsDoneOnFilterLevel() || mode == Mode.FILTER_LEVEL) {
+                // For filter level DLS, the query was already modified to include the DLS restrictions.
+                // Thus, we can exist here early.
+                log.trace("handleSearchContext(): DLS is done on the filter level; no further handling necessary");
                 return;
             }
 
@@ -402,7 +414,6 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
 
             DlsFlsProcessedConfig config = this.dlsFlsProcessedConfig.get();
 
-            String index = searchContext.indexShard().indexSettings().getIndex().getName();
             DlsRestriction dlsRestriction = config.getDocumentPrivileges().getRestriction(privilegesEvaluationContext, index);
 
             if (log.isTraceEnabled()) {
@@ -410,6 +421,16 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
             }
 
             if (!dlsRestriction.isUnrestricted()) {
+                if (mode == Mode.ADAPTIVE && dlsRestriction.containsTermLookupQuery()) {
+                    // Special case for scroll operations:
+                    // Normally, the check dlsFlsBaseContext.isDlsDoneOnFilterLevel() already aborts early if DLS filter level mode
+                    // has been activated. However, this is not the case for scroll operations, as these lose the thread context value
+                    // on which dlsFlsBaseContext.isDlsDoneOnFilterLevel() is based on. Thus, we need to check here again the deeper
+                    // conditions.
+                    log.trace("DlsRestriction: contains TLQ.");
+                    return;
+                }
+
                 assert searchContext.parsedQuery() != null;
 
                 BooleanQuery.Builder queryBuilder = dlsRestriction.toBooleanQueryBuilder(
@@ -445,6 +466,40 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
     @Override
     public DlsFlsProcessedConfig getCurrentConfig() {
         return dlsFlsProcessedConfig.get();
+    }
+
+    @Override
+    public boolean hasFlsOrFieldMasking(String index) throws PrivilegesEvaluationException {
+        PrivilegesEvaluationContext privilegesEvaluationContext = this.dlsFlsBaseContext.getPrivilegesEvaluationContext();
+        if (privilegesEvaluationContext == null) {
+            return false;
+        }
+
+        DlsFlsProcessedConfig config = this.dlsFlsProcessedConfig.get();
+        return !config.getFieldPrivileges().isUnrestricted(privilegesEvaluationContext, index) || !config.getFieldMasking().isUnrestricted(privilegesEvaluationContext, index);
+    }
+
+
+    @Override
+    public boolean hasFieldMasking(String index) throws PrivilegesEvaluationException {
+        PrivilegesEvaluationContext privilegesEvaluationContext = this.dlsFlsBaseContext.getPrivilegesEvaluationContext();
+        if (privilegesEvaluationContext == null) {
+            return false;
+        }
+
+        DlsFlsProcessedConfig config = this.dlsFlsProcessedConfig.get();
+        return !config.getFieldMasking().isUnrestricted(privilegesEvaluationContext, index);
+    }
+
+    @Override
+    public boolean isFieldAllowed(String index, String field) throws PrivilegesEvaluationException {
+        PrivilegesEvaluationContext privilegesEvaluationContext = this.dlsFlsBaseContext.getPrivilegesEvaluationContext();
+        if (privilegesEvaluationContext == null) {
+            return false;
+        }
+
+        DlsFlsProcessedConfig config = this.dlsFlsProcessedConfig.get();
+        return config.getFieldPrivileges().getRestriction(privilegesEvaluationContext, index).isAllowed(field);
     }
 
     private static InternalAggregation aggregateBuckets(InternalAggregation aggregation) {
