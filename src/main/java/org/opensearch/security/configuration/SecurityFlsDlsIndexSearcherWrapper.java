@@ -157,7 +157,7 @@ public class SecurityFlsDlsIndexSearcherWrapper extends SecurityIndexSearcherWra
 
             DocumentAllowList documentAllowList = DocumentAllowList.get(threadContext);
 
-            if (documentAllowList.isEntryForIndexPresent(index.getName())  && (!flsRule.isAllowAll() || !fmRule.isAllowAll())) {
+            if (documentAllowList.isEntryForIndexPresent(index.getName()) && (!flsRule.isAllowAll() || !fmRule.isAllowAll())) {
                 log.debug("Lifting FLS/FM for {} due to present document allowlist");
                 flsRule = FieldPrivileges.FlsRule.ALLOW_ALL;
                 fmRule = FieldMasking.FieldMaskingRule.ALLOW_ALL;

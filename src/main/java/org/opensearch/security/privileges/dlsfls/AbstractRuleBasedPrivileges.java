@@ -1,3 +1,13 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ *
+ * Modifications Copyright OpenSearch Contributors. See
+ * GitHub history for details.
+ */
 package org.opensearch.security.privileges.dlsfls;
 
 import java.util.ArrayList;
@@ -133,14 +143,13 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
      * Returns true if there are roles without a rule which imposes restrictions for the particular index.
      * Does consider rules with index wildcards ("*").
      */
-    public boolean isUnrestricted(PrivilegesEvaluationContext context, String index)
-        throws PrivilegesEvaluationException {
+    public boolean isUnrestricted(PrivilegesEvaluationContext context, String index) throws PrivilegesEvaluationException {
         if (context.getMappedRoles().isEmpty()) {
             return false;
         }
 
         if (this.dfmEmptyOverwritesAll
-                && CollectionUtils.containsAny(this.staticIndexRules.rolesWithIndexWildcardWithoutRule, context.getMappedRoles())) {
+            && CollectionUtils.containsAny(this.staticIndexRules.rolesWithIndexWildcardWithoutRule, context.getMappedRoles())) {
             return true;
         }
 
@@ -406,14 +415,6 @@ abstract class AbstractRuleBasedPrivileges<SingleRule, JoinedRule extends Abstra
             }
 
             return result;
-        } else {
-            return Collections.emptySet();
-        }
-    }
-
-    private Set<String> getParentAliases(IndexAbstraction indexAbstraction) {
-        if (indexAbstraction instanceof IndexAbstraction.Index) {
-            return ((IndexAbstraction.Index) indexAbstraction).getWriteIndex().getAliases().keySet();
         } else {
             return Collections.emptySet();
         }

@@ -195,7 +195,7 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
                     doFilterLevelDls = true;
                     log.debug("Doing filter-level DLS due to header");
                     dlsRestrictionMap = config.getDocumentPrivileges()
-                            .getRestrictions(context, resolved.getAllIndicesResolved(clusterService, context.getIndexNameExpressionResolver()));
+                        .getRestrictions(context, resolved.getAllIndicesResolved(clusterService, context.getIndexNameExpressionResolver()));
                 } else {
                     dlsRestrictionMap = config.getDocumentPrivileges()
                         .getRestrictions(context, resolved.getAllIndicesResolved(clusterService, context.getIndexNameExpressionResolver()));
@@ -476,9 +476,9 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
         }
 
         DlsFlsProcessedConfig config = this.dlsFlsProcessedConfig.get();
-        return !config.getFieldPrivileges().isUnrestricted(privilegesEvaluationContext, index) || !config.getFieldMasking().isUnrestricted(privilegesEvaluationContext, index);
+        return !config.getFieldPrivileges().isUnrestricted(privilegesEvaluationContext, index)
+            || !config.getFieldMasking().isUnrestricted(privilegesEvaluationContext, index);
     }
-
 
     @Override
     public boolean hasFieldMasking(String index) throws PrivilegesEvaluationException {
