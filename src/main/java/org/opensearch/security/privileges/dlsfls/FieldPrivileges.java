@@ -1,9 +1,21 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ *
+ * Modifications Copyright OpenSearch Contributors. See
+ * GitHub history for details.
+ */
 package org.opensearch.security.privileges.dlsfls;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.ImmutableList;
@@ -53,13 +65,7 @@ public class FieldPrivileges extends AbstractRuleBasedPrivileges<FieldPrivileges
 
     public static abstract class FlsRule extends AbstractRuleBasedPrivileges.Rule {
         public static FlsRule of(String... rules) throws PrivilegesConfigurationValidationException {
-            ImmutableList.Builder<FlsPattern> patterns = new ImmutableList.Builder<>();
-
-            for (String rule : rules) {
-                patterns.add(new FlsPattern(rule));
-            }
-
-            return new SingleRole(patterns.build());
+            return new SingleRole(FlsPattern.parse(Arrays.asList(rules)), null);
         }
 
         static FlsRule merge(Collection<FlsRule> rules) {
@@ -82,8 +88,8 @@ public class FieldPrivileges extends AbstractRuleBasedPrivileges<FieldPrivileges
             return new FlsRule.MultiRole(entries.build());
         }
 
-        public static final FlsRule ALLOW_ALL = new FlsRule.SingleRole(ImmutableList.of());
-        public static final FlsRule DENY_ALL = new FlsRule.SingleRole(ImmutableList.of(FlsPattern.EXCLUDE_ALL));
+        public static final FlsRule ALLOW_ALL = new FlsRule.SingleRole(ImmutableList.of(), null);
+        public static final FlsRule DENY_ALL = new FlsRule.SingleRole(ImmutableList.of(FlsPattern.EXCLUDE_ALL), null);
 
         public abstract boolean isAllowed(String field);
 
@@ -98,44 +104,45 @@ public class FieldPrivileges extends AbstractRuleBasedPrivileges<FieldPrivileges
         static class SingleRole extends FlsRule {
             final RoleV7.Index sourceIndex;
             final ImmutableList<FlsPattern> patterns;
-            final Map<String, Boolean> cache;
+            final ImmutableList<FlsPattern> effectivePatterns;
             final boolean allowAll;
+            final boolean excluding;
 
             SingleRole(RoleV7.Index sourceIndex) throws PrivilegesConfigurationValidationException {
+                this(FlsPattern.parse(sourceIndex.getFls()), sourceIndex);
+            }
+
+            public SingleRole(List<FlsPattern> patterns, RoleV7.Index sourceIndex) {
                 this.sourceIndex = sourceIndex;
 
-                int exclusions = 0;
-                int inclusions = 0;
+                List<FlsPattern> flsPatternsExcluding = new ArrayList<>(patterns.size());
+                List<FlsPattern> flsPatternsIncluding = new ArrayList<>(patterns.size());
 
-                ImmutableList.Builder<FlsPattern> flsPatterns = ImmutableList.builder();
+                for (FlsPattern flsPattern : patterns) {
 
-                for (String flsPatternSource : sourceIndex.getFls()) {
-                    try {
-                        FlsPattern flsPattern = new FlsPattern(flsPatternSource);
-                        flsPatterns.add(flsPattern);
-
-                        if (flsPattern.isExcluded()) {
-                            exclusions++;
-                        } else {
-                            inclusions++;
-                        }
-                    } catch (PrivilegesConfigurationValidationException e) {
-                        throw new PrivilegesConfigurationValidationException("Invalid FLS pattern in " + sourceIndex, e);
+                    if (flsPattern.isExcluded()) {
+                        flsPatternsExcluding.add(flsPattern);
+                    } else {
+                        flsPatternsIncluding.add(flsPattern);
                     }
+
                 }
+
+                int exclusions = flsPatternsExcluding.size();
+                int inclusions = flsPatternsIncluding.size();
 
                 if (exclusions == 0 && inclusions == 0) {
                     // Empty
-                    this.patterns = ImmutableList.of(FlsPattern.INCLUDE_ALL);
+                    this.effectivePatterns = this.patterns = ImmutableList.of(FlsPattern.INCLUDE_ALL);
+                    this.excluding = false;
                 } else if (exclusions != 0 && inclusions == 0) {
-                    // Only exclusions TODO check
-                    this.patterns = flsPatterns.build();
+                    // Only exclusions
+                    this.effectivePatterns = this.patterns = ImmutableList.copyOf(flsPatternsExcluding);
+                    this.excluding = true;
                 } else if (exclusions == 0 && inclusions != 0) {
                     // Only inclusions
-                    // We prepend to the list of inclusions one "exclude all" rule.
-                    // The evaluation algorithm in internalIsAllowed() (see below) will then start with a
-                    // "include nothing" state and gradually include the patterns.
-                    this.patterns = ImmutableList.<FlsPattern>builder().add(FlsPattern.EXCLUDE_ALL).addAll(flsPatterns.build()).build();
+                    this.effectivePatterns = this.patterns = ImmutableList.copyOf(flsPatternsIncluding);
+                    this.excluding = false;
                 } else {
                     // Mixed inclusions and exclusions
                     //
@@ -147,59 +154,40 @@ public class FieldPrivileges extends AbstractRuleBasedPrivileges<FieldPrivileges
                     // See:
                     // https://github.com/opensearch-project/security/blob/e73fc24509363cb1573607c6cf47c98780fc89de/src/main/java/org/opensearch/security/configuration/DlsFlsFilterLeafReader.java#L658-L662
                     // https://opensearch.org/docs/latest/security/access-control/field-level-security/
-                    this.patterns = flsPatterns.build().stream().filter(e -> e.isExcluded()).collect(ImmutableList.toImmutableList());
+                    this.patterns = ImmutableList.copyOf(patterns);
+                    this.effectivePatterns = ImmutableList.copyOf(flsPatternsExcluding);
+                    this.excluding = true;
                 }
 
                 this.allowAll = patterns.isEmpty()
                     || (patterns.size() == 1 && patterns.get(0).getPattern() == WildcardMatcher.ANY && !patterns.get(0).isExcluded());
-
-                if (this.allowAll) {
-                    this.cache = null;
-                } else {
-                    this.cache = new ConcurrentHashMap<String, Boolean>();
-                }
-            }
-
-            public SingleRole(ImmutableList<FlsPattern> patterns) {
-                this.patterns = patterns;
-                this.sourceIndex = null;
-                this.allowAll = patterns.isEmpty()
-                    || (patterns.size() == 1 && patterns.get(0).getPattern() == WildcardMatcher.ANY && !patterns.get(0).isExcluded());
-                this.cache = null;
             }
 
             public boolean isAllowed(String field) {
-                if (cache == null) {
-                    return internalIsAllowed(field);
-                } else {
-                    Boolean allowed = this.cache.get(field);
-
-                    if (allowed != null) {
-                        return allowed;
-                    } else {
-                        allowed = internalIsAllowed(field);
-                        this.cache.put(field, allowed);
-                        return allowed;
-                    }
+                if (isAllowAll()) {
+                    return true;
                 }
-            }
 
-            private boolean internalIsAllowed(String field) {
                 field = stripKeywordSuffix(field);
 
-                boolean allowed = true;
-
-                for (FlsPattern pattern : this.patterns) {
-                    if (pattern.getPattern().test(field)) {
-                        if (pattern.isExcluded()) {
-                            allowed = false;
-                        } else {
-                            allowed = true;
+                if (excluding) {
+                    for (FlsPattern pattern : this.effectivePatterns) {
+                        assert pattern.isExcluded();
+                        if (pattern.getPattern().test(field)) {
+                            return false;
                         }
                     }
+                    return true;
+                } else {
+                    // including
+                    for (FlsPattern pattern : this.effectivePatterns) {
+                        assert !pattern.isExcluded();
+                        if (pattern.getPattern().test(field)) {
+                            return true;
+                        }
+                    }
+                    return false;
                 }
-
-                return allowed;
             }
 
             public boolean isAllowAll() {
@@ -223,49 +211,57 @@ public class FieldPrivileges extends AbstractRuleBasedPrivileges<FieldPrivileges
 
         static class MultiRole extends FlsRule {
             final ImmutableList<SingleRole> entries;
-            final Map<String, Boolean> cache;
+            final ImmutableList<SingleRole> effectiveEntries;
+
             final boolean allowAll;
+            final boolean excluding;
 
             MultiRole(ImmutableList<SingleRole> entries) {
                 this.entries = entries;
                 this.allowAll = entries.stream().anyMatch((e) -> e.isAllowAll());
 
                 if (this.allowAll) {
-                    this.cache = null;
+                    this.effectiveEntries = entries;
+                    this.excluding = false;
                 } else {
-                    this.cache = new ConcurrentHashMap<String, Boolean>();
+                    long excluding = entries.stream().filter(e -> e.excluding).count();
+                    long including = entries.size() - excluding;
+
+                    if (excluding != 0 && including == 0) {
+                        this.effectiveEntries = entries;
+                        this.excluding = true;
+                    } else if (excluding == 0 && including != 0) {
+                        this.effectiveEntries = entries;
+                        this.excluding = false;
+                    } else {
+                        // Only use excluding entries
+                        this.effectiveEntries = entries.stream().filter(e -> e.excluding).collect(ImmutableList.toImmutableList());
+                        this.excluding = true;
+                    }
                 }
             }
 
             public boolean isAllowed(String field) {
                 if (allowAll) {
                     return true;
-                } else if (cache == null) {
-                    return internalIsAllowed(field);
                 } else {
-                    Boolean allowed = this.cache.get(field);
-
-                    if (allowed != null) {
-                        return allowed;
-                    } else {
-                        allowed = internalIsAllowed(field);
-                        this.cache.put(field, allowed);
-                        return allowed;
-                    }
-                }
-            }
-
-            private boolean internalIsAllowed(String field) {
-                field = stripKeywordSuffix(field);
-
-                // TODO check
-                for (SingleRole entry : this.entries) {
-                    if (entry.isAllowed(field)) {
+                    if (excluding) {
+                        for (SingleRole rule : entries) {
+                            if (!rule.isAllowed(field)) {
+                                return false;
+                            }
+                        }
                         return true;
+                    } else {
+                        // including
+                        for (SingleRole rule : entries) {
+                            if (rule.isAllowed(field)) {
+                                return true;
+                            }
+                        }
+                        return false;
                     }
                 }
-
-                return false;
             }
 
             public boolean isAllowAll() {
@@ -305,15 +301,19 @@ public class FieldPrivileges extends AbstractRuleBasedPrivileges<FieldPrivileges
         private final String source;
 
         public FlsPattern(String string) throws PrivilegesConfigurationValidationException {
-            if (string.startsWith("~") || string.startsWith("!")) {
-                excluded = true;
-                pattern = WildcardMatcher.from(string.substring(1));
-            } else {
-                pattern = WildcardMatcher.from(string);
-                excluded = false;
-            }
+            try {
+                if (string.startsWith("~") || string.startsWith("!")) {
+                    excluded = true;
+                    pattern = WildcardMatcher.from(string.substring(1));
+                } else {
+                    pattern = WildcardMatcher.from(string);
+                    excluded = false;
+                }
 
-            this.source = string;
+                this.source = string;
+            } catch (PatternSyntaxException e) {
+                throw new PrivilegesConfigurationValidationException(e.getMessage(), e);
+            }
         }
 
         FlsPattern(WildcardMatcher pattern, boolean excluded, String source) {
@@ -337,6 +337,20 @@ public class FieldPrivileges extends AbstractRuleBasedPrivileges<FieldPrivileges
         @Override
         public String toString() {
             return source;
+        }
+
+        public static List<FlsPattern> parse(List<String> flsPatternStrings) throws PrivilegesConfigurationValidationException {
+            List<FlsPattern> flsPatterns = new ArrayList<>(flsPatternStrings.size());
+
+            for (String flsPatternSource : flsPatternStrings) {
+                try {
+                    flsPatterns.add(new FlsPattern(flsPatternSource));
+                } catch (PrivilegesConfigurationValidationException e) {
+                    throw new PrivilegesConfigurationValidationException("Invalid FLS pattern " + flsPatternSource, e);
+                }
+            }
+
+            return flsPatterns;
         }
     }
 

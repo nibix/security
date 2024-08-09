@@ -16,6 +16,7 @@ import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.security.support.ConfigConstants;
 
@@ -46,11 +47,9 @@ public class DocumentAllowList {
 
     private static final DocumentAllowList EMPTY = new DocumentAllowList();
 
-
     private final Set<Entry> entries = new HashSet<>();
 
-    public DocumentAllowList() {
-    }
+    public DocumentAllowList() {}
 
     public void add(String index, String id) {
         this.add(new Entry(index, id));

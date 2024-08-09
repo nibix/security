@@ -25,7 +25,6 @@ import org.opensearch.OpenSearchException;
  *
  * TODO
  *
- * https://github.com/opensearch-project/security/pull/4336
  * https://github.com/opensearch-project/security/pull/2375
  * https://github.com/opensearch-project/security/pull/3069
  */
@@ -213,6 +212,8 @@ public class FlsStoredFieldVisitor extends StoredFieldVisitor {
                             this.fullCurrentName = this.fullParentName == null
                                 ? this.currentName
                                 : this.fullParentName + "." + this.currentName;
+
+                            System.out.println("**** " + fullCurrentName + " " + flsRule.isAllowed(fullCurrentName) + " " + flsRule);
 
                             if (metaFields.contains(fullCurrentName) || flsRule.isAllowed(fullCurrentName)) {
                                 generator.writeFieldName(parser.currentName());
