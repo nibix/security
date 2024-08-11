@@ -1,3 +1,13 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ *
+ * Modifications Copyright OpenSearch Contributors. See
+ * GitHub history for details.
+ */
 package org.opensearch.security.privileges.dlsfls;
 
 import java.util.ArrayList;
@@ -20,6 +30,15 @@ import org.opensearch.security.privileges.UserAttributes;
 import org.opensearch.security.securityconf.impl.SecurityDynamicConfiguration;
 import org.opensearch.security.securityconf.impl.v7.RoleV7;
 
+/**
+ * This class converts role configuration into pre-computed, optimized data structures for checking DLS privileges.
+ * <p>
+ * With the exception of the statefulRules property, instances of this class are immutable. The life-cycle of an
+ * instance of this class corresponds to the life-cycle of the role configuration. If the role configuration is changed,
+ * a new instance needs to be built.
+ * <p>
+ * Instances of this class are managed by DlsFlsValveImpl.
+ */
 public class DocumentPrivileges extends AbstractRuleBasedPrivileges<DocumentPrivileges.DlsQuery, DlsRestriction> {
 
     private final NamedXContentRegistry xContentRegistry;

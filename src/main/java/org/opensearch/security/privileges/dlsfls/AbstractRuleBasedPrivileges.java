@@ -42,6 +42,10 @@ import com.selectivem.collections.DeduplicatingCompactSubSetBuilder;
 /**
  * Abstract super class which provides common DLS/FLS/FM rule evaluation functionality for the concrete classes
  * DocumentPrivileges, FieldPrivileges and FieldMasking.
+ * <p>
+ * With the exception of the statefulRules property, instances of this class are immutable. The life-cycle of an
+ * instance of this class corresponds to the life-cycle of the role configuration. If the role configuration is changed,
+ * a new instance needs to be built.
  *
  * @param <SingleRule> A single DLS/FLS/FM rule as defined in roles.yml.
  * @param <JoinedRule> A merged DLS/FLS/FM rule that might contain SingleRules from several roles that apply to a user at the same time.
