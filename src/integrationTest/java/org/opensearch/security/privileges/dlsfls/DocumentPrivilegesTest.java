@@ -1,18 +1,31 @@
 package org.opensearch.security.privileges.dlsfls;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.DiagnosingMatcher;
 import org.hamcrest.Matcher;
-import org.junit.experimental.runners.Enclosed;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Suite;
+
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexAbstraction;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.common.CheckedFunction;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.core.ParseField;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
@@ -21,78 +34,47 @@ import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
-
-import java.io.IOException;
-
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Suite;
-
-import org.opensearch.action.support.IndicesOptions;
-import org.opensearch.cluster.metadata.IndexAbstraction;
-import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.security.privileges.ExpressionEvaluationException;
 import org.opensearch.security.privileges.PrivilegesEvaluationContext;
 import org.opensearch.security.privileges.PrivilegesEvaluationException;
-import org.opensearch.security.resolver.IndexResolverReplacer;
-import org.opensearch.security.securityconf.FlattenedActionGroups;
-import org.opensearch.security.securityconf.impl.CType;
 import org.opensearch.security.securityconf.impl.SecurityDynamicConfiguration;
 import org.opensearch.security.securityconf.impl.v7.RoleV7;
 import org.opensearch.security.user.User;
-import org.opensearch.security.util.MockIndexMetadataBuilder;
 import org.opensearch.test.framework.TestSecurityConfig;
-
 
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
-import static org.opensearch.security.util.MockIndexMetadataBuilder.dataStreams;
 import static org.opensearch.security.util.MockIndexMetadataBuilder.indices;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 
 @RunWith(Suite.class)
-@Suite.SuiteClasses({
-        DocumentPrivilegesTest.IndicesAndAliases_getRestriction.class })
+@Suite.SuiteClasses({ DocumentPrivilegesTest.IndicesAndAliases_getRestriction.class })
 public class DocumentPrivilegesTest {
 
     static NamedXContentRegistry xContentRegistry = new NamedXContentRegistry(
-            ImmutableList.of(new NamedXContentRegistry.Entry(QueryBuilder.class, new ParseField(TermQueryBuilder.NAME),
-                    (CheckedFunction<XContentParser, TermQueryBuilder, IOException>) (p) -> TermQueryBuilder.fromXContent(p))));
+        ImmutableList.of(
+            new NamedXContentRegistry.Entry(
+                QueryBuilder.class,
+                new ParseField(TermQueryBuilder.NAME),
+                (CheckedFunction<XContentParser, TermQueryBuilder, IOException>) (p) -> TermQueryBuilder.fromXContent(p)
+            )
+        )
+    );
 
     @RunWith(Parameterized.class)
     public static class IndicesAndAliases_getRestriction {
         final static Metadata INDEX_METADATA = //
-                indices("index_a1", "index_a2", "index_b1", "index_b2")//
-                        .alias("alias_a")
-                        .of("index_a1", "index_a2")//
-                        .build();
+            indices("index_a1", "index_a2", "index_b1", "index_b2")//
+                .alias("alias_a")
+                .of("index_a1", "index_a2")//
+                .build();
 
         final static ClusterState CLUSTER_STATE = ClusterState.builder(ClusterState.EMPTY_STATE).metadata(INDEX_METADATA).build();
 
         final static IndexAbstraction.Index index_a1 = (IndexAbstraction.Index) INDEX_METADATA.getIndicesLookup().get("index_a1");
-        final static  IndexAbstraction.Index index_a2 = (IndexAbstraction.Index) INDEX_METADATA.getIndicesLookup().get("index_a2");
-        final static  IndexAbstraction.Index index_b1 = (IndexAbstraction.Index) INDEX_METADATA.getIndicesLookup().get("index_b1");
+        final static IndexAbstraction.Index index_a2 = (IndexAbstraction.Index) INDEX_METADATA.getIndicesLookup().get("index_a2");
+        final static IndexAbstraction.Index index_b1 = (IndexAbstraction.Index) INDEX_METADATA.getIndicesLookup().get("index_b1");
 
         final Statefulness statefulness;
         final UserSpec userSpec;
@@ -104,10 +86,12 @@ public class DocumentPrivilegesTest {
 
         @Test
         public void wildcard() throws Exception {
-            SecurityDynamicConfiguration<RoleV7> roleConfig = roleConfig(//
-                    new TestSecurityConfig.Role("dls_role_1").indexPermissions("*").dls(QueryBuilders.termQuery("dept", "dept_r1")).on("*"),
-                    new TestSecurityConfig.Role("dls_role_2").indexPermissions("*").dls(QueryBuilders.termQuery("dept", "dept_r2")).on("*"),
-                    new TestSecurityConfig.Role("non_dls_role").indexPermissions("*").on("*"));
+            SecurityDynamicConfiguration<RoleV7> roleConfig = roleConfig(
+                //
+                new TestSecurityConfig.Role("dls_role_1").indexPermissions("*").dls(QueryBuilders.termQuery("dept", "dept_r1")).on("*"),
+                new TestSecurityConfig.Role("dls_role_2").indexPermissions("*").dls(QueryBuilders.termQuery("dept", "dept_r2")).on("*"),
+                new TestSecurityConfig.Role("non_dls_role").indexPermissions("*").on("*")
+            );
             DocumentPrivileges subject = createSubject(roleConfig);
 
             DlsRestriction dlsRestriction = subject.getRestriction(context, index.getName());
@@ -129,10 +113,16 @@ public class DocumentPrivilegesTest {
 
         @Test
         public void wildcard_negation() throws Exception {
-            SecurityDynamicConfiguration<RoleV7> roleConfig = roleConfig(//
-                    new TestSecurityConfig.Role("dls_role_1").indexPermissions("*").dls(QueryBuilders.termQuery("dept", "dept_r1")).on("*", "-index_b*"),
-                    new TestSecurityConfig.Role("dls_role_2").indexPermissions("*").dls(QueryBuilders.termQuery("dept", "dept_r2")).on("*", "-index_a*"),
-                    new TestSecurityConfig.Role("non_dls_role").indexPermissions("*").on("*"));
+            SecurityDynamicConfiguration<RoleV7> roleConfig = roleConfig(
+                //
+                new TestSecurityConfig.Role("dls_role_1").indexPermissions("*")
+                    .dls(QueryBuilders.termQuery("dept", "dept_r1"))
+                    .on("*", "-index_b*"),
+                new TestSecurityConfig.Role("dls_role_2").indexPermissions("*")
+                    .dls(QueryBuilders.termQuery("dept", "dept_r2"))
+                    .on("*", "-index_a*"),
+                new TestSecurityConfig.Role("non_dls_role").indexPermissions("*").on("*")
+            );
             DocumentPrivileges subject = createSubject(roleConfig);
 
             DlsRestriction dlsRestriction = subject.getRestriction(context, index.getName());
@@ -158,10 +148,16 @@ public class DocumentPrivilegesTest {
 
         @Test
         public void indexPattern() throws Exception {
-            SecurityDynamicConfiguration<RoleV7> roleConfig = roleConfig(//
-                    new TestSecurityConfig.Role("dls_role_1").indexPermissions("*").dls(QueryBuilders.termQuery("dept", "dept_r1")).on("index_a*"),
-                    new TestSecurityConfig.Role("dls_role_2").indexPermissions("*").dls(QueryBuilders.termQuery("dept", "dept_r2")).on("index_b*"),
-                    new TestSecurityConfig.Role("non_dls_role").indexPermissions("*").on("*"));
+            SecurityDynamicConfiguration<RoleV7> roleConfig = roleConfig(
+                //
+                new TestSecurityConfig.Role("dls_role_1").indexPermissions("*")
+                    .dls(QueryBuilders.termQuery("dept", "dept_r1"))
+                    .on("index_a*"),
+                new TestSecurityConfig.Role("dls_role_2").indexPermissions("*")
+                    .dls(QueryBuilders.termQuery("dept", "dept_r2"))
+                    .on("index_b*"),
+                new TestSecurityConfig.Role("non_dls_role").indexPermissions("*").on("*")
+            );
             DocumentPrivileges subject = createSubject(roleConfig);
 
             DlsRestriction dlsRestriction = subject.getRestriction(context, index.getName());
@@ -187,12 +183,16 @@ public class DocumentPrivilegesTest {
 
         @Test
         public void indexPattern_negation() throws Exception {
-            SecurityDynamicConfiguration<RoleV7> roleConfig = roleConfig(//
-                    new TestSecurityConfig.Role("dls_role_1").indexPermissions("*").dls(QueryBuilders.termQuery("dept", "dept_r1")).on("index_*",
-                            "-index_b*"),
-                    new TestSecurityConfig.Role("dls_role_2").indexPermissions("*").dls(QueryBuilders.termQuery("dept", "dept_r2")).on("index_*",
-                            "-index_a*"),
-                    new TestSecurityConfig.Role("non_dls_role").indexPermissions("*").on("*"));
+            SecurityDynamicConfiguration<RoleV7> roleConfig = roleConfig(
+                //
+                new TestSecurityConfig.Role("dls_role_1").indexPermissions("*")
+                    .dls(QueryBuilders.termQuery("dept", "dept_r1"))
+                    .on("index_*", "-index_b*"),
+                new TestSecurityConfig.Role("dls_role_2").indexPermissions("*")
+                    .dls(QueryBuilders.termQuery("dept", "dept_r2"))
+                    .on("index_*", "-index_a*"),
+                new TestSecurityConfig.Role("non_dls_role").indexPermissions("*").on("*")
+            );
             DocumentPrivileges subject = createSubject(roleConfig);
 
             DlsRestriction dlsRestriction = subject.getRestriction(context, index.getName());
@@ -218,11 +218,16 @@ public class DocumentPrivilegesTest {
 
         @Test
         public void template() throws Exception {
-            SecurityDynamicConfiguration<RoleV7> roleConfig = roleConfig(//
-                    new TestSecurityConfig.Role("dls_role_1").indexPermissions("*").dls(QueryBuilders.termQuery("dept", "dept_r1"))
-                            .on("index_${user.attrs.attr_a}1"),
-                    new TestSecurityConfig.Role("dls_role_2").indexPermissions("*").dls(QueryBuilders.termQuery("dept", "dept_r2")).on("index_a*"),
-                    new TestSecurityConfig.Role("non_dls_role").indexPermissions("*").on("index_${user.attrs.attr_a}1"));
+            SecurityDynamicConfiguration<RoleV7> roleConfig = roleConfig(
+                //
+                new TestSecurityConfig.Role("dls_role_1").indexPermissions("*")
+                    .dls(QueryBuilders.termQuery("dept", "dept_r1"))
+                    .on("index_${user.attrs.attr_a}1"),
+                new TestSecurityConfig.Role("dls_role_2").indexPermissions("*")
+                    .dls(QueryBuilders.termQuery("dept", "dept_r2"))
+                    .on("index_a*"),
+                new TestSecurityConfig.Role("non_dls_role").indexPermissions("*").on("index_${user.attrs.attr_a}1")
+            );
 
             DocumentPrivileges subject = createSubject(roleConfig);
 
@@ -254,7 +259,7 @@ public class DocumentPrivilegesTest {
                 }
             } catch (PrivilegesEvaluationException e) {
                 if ((userSpec.roles.contains("non_dls_role") || userSpec.roles.contains("dls_role_1"))
-                        && !userSpec.attributes.containsKey("attr_a")) {
+                    && !userSpec.attributes.containsKey("attr_a")) {
                     assertThat(e.getCause(), is(instanceOf((ExpressionEvaluationException.class))));
                 } else {
                     fail("Unexpected exception: " + e);
@@ -264,10 +269,16 @@ public class DocumentPrivilegesTest {
 
         @Test
         public void alias() throws Exception {
-            SecurityDynamicConfiguration<RoleV7> roleConfig = roleConfig(//
-                    new TestSecurityConfig.Role("dls_role_1").indexPermissions("*").dls(QueryBuilders.termQuery("dept", "dept_r1")).on("alias_a"),
-                    new TestSecurityConfig.Role("dls_role_2").indexPermissions("*").dls(QueryBuilders.termQuery("dept", "dept_r2")).on("index_a2"),
-                    new TestSecurityConfig.Role("non_dls_role").indexPermissions("*").on("alias_a"));
+            SecurityDynamicConfiguration<RoleV7> roleConfig = roleConfig(
+                //
+                new TestSecurityConfig.Role("dls_role_1").indexPermissions("*")
+                    .dls(QueryBuilders.termQuery("dept", "dept_r1"))
+                    .on("alias_a"),
+                new TestSecurityConfig.Role("dls_role_2").indexPermissions("*")
+                    .dls(QueryBuilders.termQuery("dept", "dept_r2"))
+                    .on("index_a2"),
+                new TestSecurityConfig.Role("non_dls_role").indexPermissions("*").on("alias_a")
+            );
             DocumentPrivileges subject = createSubject(roleConfig);
 
             DlsRestriction dlsRestriction = subject.getRestriction(context, index.getName());
@@ -299,27 +310,28 @@ public class DocumentPrivilegesTest {
             }
         }
 
-
-
         @Parameterized.Parameters(name = "{0}; {1}; {2}; {3}")
         public static Collection<Object[]> params() {
             List<Object[]> result = new ArrayList<>();
 
-            for (UserSpec userSpec : Arrays.asList(//
-                    new UserSpec("non_dls_role", "non_dls_role"), //
-                    new UserSpec("dls_role_1", "dls_role_1"), //
-                    new UserSpec("dls_role_1 and dls_role_2", "dls_role_1", "dls_role_2"), //
-                    new UserSpec("dls_role_1 and non_dls_role", "dls_role_1", "non_dls_role"), //
-                    new UserSpec("non_dls_role, attributes", "non_dls_role").attribute("attr_a", "a"), //
-                    new UserSpec("dls_role_1, attributes", "dls_role_1").attribute("attr_a", "a"), //
-                    new UserSpec("dls_role_1 and dls_role_2, attributes", "dls_role_1", "dls_role_2").attribute("attr_a", "a"), //
-                    new UserSpec("dls_role_1 and non_dls_role, attributes", "dls_role", "non_dls_role").attribute("attr_a", "a"), //
-                    new UserSpec("no roles")//
+            for (UserSpec userSpec : Arrays.asList(
+                //
+                new UserSpec("non_dls_role", "non_dls_role"), //
+                new UserSpec("dls_role_1", "dls_role_1"), //
+                new UserSpec("dls_role_1 and dls_role_2", "dls_role_1", "dls_role_2"), //
+                new UserSpec("dls_role_1 and non_dls_role", "dls_role_1", "non_dls_role"), //
+                new UserSpec("non_dls_role, attributes", "non_dls_role").attribute("attr_a", "a"), //
+                new UserSpec("dls_role_1, attributes", "dls_role_1").attribute("attr_a", "a"), //
+                new UserSpec("dls_role_1 and dls_role_2, attributes", "dls_role_1", "dls_role_2").attribute("attr_a", "a"), //
+                new UserSpec("dls_role_1 and non_dls_role, attributes", "dls_role", "non_dls_role").attribute("attr_a", "a"), //
+                new UserSpec("no roles")//
             )) {
-                for (IndexSpec indexSpec : Arrays.asList(//
-                        new IndexSpec("index_a1"), //
-                        new IndexSpec("index_a2"), //
-                        new IndexSpec("index_b1"))) {
+                for (IndexSpec indexSpec : Arrays.asList(
+                    //
+                    new IndexSpec("index_a1"), //
+                    new IndexSpec("index_a2"), //
+                    new IndexSpec("index_b1")
+                )) {
                     for (Statefulness statefulness : Statefulness.values()) {
                         for (DfmEmptyOverridesAll dfmEmptyOverridesAll : DfmEmptyOverridesAll.values()) {
                             result.add(new Object[] { userSpec, indexSpec, statefulness, dfmEmptyOverridesAll });
@@ -330,19 +342,37 @@ public class DocumentPrivilegesTest {
             return result;
         }
 
-        public IndicesAndAliases_getRestriction(UserSpec userSpec, IndexSpec indexSpec, Statefulness statefulness, DfmEmptyOverridesAll dfmEmptyOverridesAll) {
+        public IndicesAndAliases_getRestriction(
+            UserSpec userSpec,
+            IndexSpec indexSpec,
+            Statefulness statefulness,
+            DfmEmptyOverridesAll dfmEmptyOverridesAll
+        ) {
             this.userSpec = userSpec;
             this.indexSpec = indexSpec;
             this.user = userSpec.buildUser();
             this.index = (IndexAbstraction.Index) INDEX_METADATA.getIndicesLookup().get(indexSpec.index);
-            this.context = new PrivilegesEvaluationContext(this.user, ImmutableSet.copyOf(userSpec.roles), null, null, null, null, null, () -> CLUSTER_STATE);
+            this.context = new PrivilegesEvaluationContext(
+                this.user,
+                ImmutableSet.copyOf(userSpec.roles),
+                null,
+                null,
+                null,
+                null,
+                null,
+                () -> CLUSTER_STATE
+            );
             this.statefulness = statefulness;
             this.dfmEmptyOverridesAll = dfmEmptyOverridesAll == DfmEmptyOverridesAll.DFM_EMPTY_OVERRIDES_ALL_TRUE;
         }
 
-
         private DocumentPrivileges createSubject(SecurityDynamicConfiguration<RoleV7> roleConfig) {
-            return new DocumentPrivileges(roleConfig, statefulness == Statefulness.STATEFUL ? INDEX_METADATA.getIndicesLookup() : null, xContentRegistry, Settings.builder().put("plugins.security.dfm_empty_overrides_all", this.dfmEmptyOverridesAll).build());
+            return new DocumentPrivileges(
+                roleConfig,
+                statefulness == Statefulness.STATEFUL ? INDEX_METADATA.getIndicesLookup() : null,
+                xContentRegistry,
+                Settings.builder().put("plugins.security.dfm_empty_overrides_all", this.dfmEmptyOverridesAll).build()
+            );
         }
     }
 
@@ -977,7 +1007,8 @@ public class DocumentPrivilegesTest {
     }
 
     static enum Statefulness {
-        STATEFUL, NON_STATEFUL
+        STATEFUL,
+        NON_STATEFUL
     }
 
     static enum DfmEmptyOverridesAll {
@@ -1047,7 +1078,8 @@ public class DocumentPrivilegesTest {
 
             @Override
             public void describeTo(Description description) {
-                description.appendText("A DlsRestriction object that has the restrictions: ").appendList("", "", ", ", Arrays.asList(queries));
+                description.appendText("A DlsRestriction object that has the restrictions: ")
+                    .appendList("", "", ", ", Arrays.asList(queries));
             }
 
             @Override
@@ -1083,12 +1115,15 @@ public class DocumentPrivilegesTest {
                 }
 
                 if (!unmatchedQueries.isEmpty()) {
-                    mismatchDescription.appendText("The DlsRestriction contains unexpected queries:").appendValue(unmatchedQueries).appendText("\n");
+                    mismatchDescription.appendText("The DlsRestriction contains unexpected queries:")
+                        .appendValue(unmatchedQueries)
+                        .appendText("\n");
                 }
 
                 if (!subMatchers.isEmpty()) {
-                    mismatchDescription.appendText("The DlsRestriction does not contain expected queries: ").appendValue(subMatchers)
-                            .appendText("\n");
+                    mismatchDescription.appendText("The DlsRestriction does not contain expected queries: ")
+                        .appendValue(subMatchers)
+                        .appendText("\n");
                 }
 
                 return false;
@@ -1117,7 +1152,8 @@ public class DocumentPrivilegesTest {
                 if (dlsRestriction.getQueries().size() != 0) {
                     for (QueryBuilder query : dlsRestriction.getQueries()) {
                         if (!query.equals(new MatchNoneQueryBuilder())) {
-                            mismatchDescription.appendText("The DlsRestriction object is not fully restricted:").appendValue(dlsRestriction);
+                            mismatchDescription.appendText("The DlsRestriction object is not fully restricted:")
+                                .appendValue(dlsRestriction);
                             return false;
                         }
                     }

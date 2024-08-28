@@ -49,8 +49,6 @@ import org.opensearch.action.bulk.BulkShardRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.Client;
-import org.opensearch.cluster.ClusterChangedEvent;
-import org.opensearch.cluster.ClusterStateListener;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
@@ -116,32 +114,25 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
         ClusterService clusterService,
         IndexNameExpressionResolver resolver,
         NamedXContentRegistry namedXContentRegistry,
-        ThreadContext threadContext,
+        ThreadPool threadPool,
         DlsFlsBaseContext dlsFlsBaseContext
     ) {
         super();
         this.nodeClient = nodeClient;
         this.clusterService = clusterService;
         this.resolver = resolver;
-        this.threadContext = threadContext;
+        this.threadContext = threadPool.getThreadContext();
         this.mode = Mode.get(settings);
         this.namedXContentRegistry = namedXContentRegistry;
         this.fieldMaskingConfig = FieldMasking.Config.fromSettings(settings);
         this.dlsFlsBaseContext = dlsFlsBaseContext;
         this.settings = settings;
 
-        clusterService.addListener(new ClusterStateListener() {
-            @Override
-            public void clusterChanged(ClusterChangedEvent event) {
-                try {
-                    DlsFlsProcessedConfig config = dlsFlsProcessedConfig.get();
+        clusterService.addListener(event -> {
+            DlsFlsProcessedConfig config = dlsFlsProcessedConfig.get();
 
-                    if (config != null) {
-                        config.updateIndices(event.state().metadata().getIndicesLookup());
-                    }
-                } catch (Exception e) {
-                    log.error("Error while updating ActionPrivileges object with new index metadata", e);
-                }
+            if (config != null) {
+                config.updateIndicesAsync(clusterService, threadPool);
             }
         });
     }
@@ -849,7 +840,7 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
     public void updateConfiguration(SecurityDynamicConfiguration<?> rolesConfiguration) {
         try {
             if (rolesConfiguration != null) {
-                this.dlsFlsProcessedConfig.set(
+                DlsFlsProcessedConfig oldConfig = this.dlsFlsProcessedConfig.getAndSet(
                     new DlsFlsProcessedConfig(
                         (SecurityDynamicConfiguration<RoleV7>) rolesConfiguration,
                         clusterService.state().metadata().getIndicesLookup(),
@@ -858,6 +849,11 @@ public class DlsFlsValveImpl implements DlsFlsRequestValve {
                         fieldMaskingConfig
                     )
                 );
+
+                if (oldConfig != null) {
+                    oldConfig.shutdown();
+                    ;
+                }
             }
         } catch (Exception e) {
             log.error("Error while updating DLS/FLS configuration with {}", rolesConfiguration, e);

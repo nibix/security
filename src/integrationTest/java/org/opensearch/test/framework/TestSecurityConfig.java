@@ -665,9 +665,17 @@ public class TestSecurityConfig {
             return Objects.hash(name, clusterPermissions, indexPermissions, hidden, reserved, description);
         }
 
-        public static SecurityDynamicConfiguration<org.opensearch.security.securityconf.impl.v7.RoleV7> toRolesConfiguration(TestSecurityConfig.Role... roles) {
+        public static SecurityDynamicConfiguration<org.opensearch.security.securityconf.impl.v7.RoleV7> toRolesConfiguration(
+            TestSecurityConfig.Role... roles
+        ) {
             try {
-                return SecurityDynamicConfiguration.fromJson(configToJson(CType.ROLES, Stream.of(roles).collect(Collectors.toMap(r -> r.name, r -> r) )), CType.ROLES, 2, 0, 0);
+                return SecurityDynamicConfiguration.fromJson(
+                    configToJson(CType.ROLES, Stream.of(roles).collect(Collectors.toMap(r -> r.name, r -> r))),
+                    CType.ROLES,
+                    2,
+                    0,
+                    0
+                );
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

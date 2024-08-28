@@ -1121,7 +1121,7 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
                 clusterService,
                 resolver,
                 xContentRegistry,
-                threadPool.getThreadContext(),
+                threadPool,
                 dlsFlsBaseContext
             );
             cr.subscribeOnChange(configMap -> { ((DlsFlsValveImpl) dlsFlsValve).updateConfiguration(cr.getConfiguration(CType.ROLES)); });
