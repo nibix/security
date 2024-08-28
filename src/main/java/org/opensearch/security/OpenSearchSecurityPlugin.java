@@ -1121,6 +1121,7 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
         evaluator = new PrivilegesEvaluator(
             clusterService,
             clusterService::state,
+            threadPool,
             threadPool.getThreadContext(),
             cr,
             resolver,

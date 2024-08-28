@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import com.google.common.collect.ImmutableList;
@@ -72,12 +73,11 @@ import org.opensearch.action.search.SearchScrollAction;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.termvectors.MultiTermVectorsAction;
 import org.opensearch.action.update.UpdateAction;
-import org.opensearch.cluster.ClusterChangedEvent;
 import org.opensearch.cluster.ClusterState;
-import org.opensearch.cluster.ClusterStateListener;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
+import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
@@ -103,6 +103,7 @@ import org.opensearch.security.support.ConfigConstants;
 import org.opensearch.security.support.WildcardMatcher;
 import org.opensearch.security.user.User;
 import org.opensearch.tasks.Task;
+import org.opensearch.threadpool.ThreadPool;
 
 import org.greenrobot.eventbus.Subscribe;
 
@@ -150,11 +151,12 @@ public class PrivilegesEvaluator {
     private DynamicConfigModel dcm;
     private final NamedXContentRegistry namedXContentRegistry;
     private final Settings settings;
-    private volatile ActionPrivileges actionPrivileges;
+    private final AtomicReference<ActionPrivileges> actionPrivileges = new AtomicReference<>();
 
     public PrivilegesEvaluator(
         final ClusterService clusterService,
         Supplier<ClusterState> clusterStateSupplier,
+        ThreadPool threadPool,
         final ThreadContext threadContext,
         final ConfigurationRepository configurationRepository,
         final IndexNameExpressionResolver resolver,
@@ -207,17 +209,10 @@ public class PrivilegesEvaluator {
         }
 
         if (clusterService != null) {
-            clusterService.addListener(new ClusterStateListener() {
-                @Override
-                public void clusterChanged(ClusterChangedEvent event) {
-                    try {
-                        ActionPrivileges actionPrivileges = PrivilegesEvaluator.this.actionPrivileges;
-                        if (actionPrivileges != null) {
-                            actionPrivileges.updateStatefulIndexPrivileges(event.state().metadata().getIndicesLookup());
-                        }
-                    } catch (Exception e) {
-                        log.error("Error while updating ActionPrivileges object with new index metadata", e);
-                    }
+            clusterService.addListener(event -> {
+                ActionPrivileges actionPrivileges = PrivilegesEvaluator.this.actionPrivileges.get();
+                if (actionPrivileges != null) {
+                    actionPrivileges.updateStatefulIndexPrivilegesAsync(clusterService, threadPool);
                 }
             });
         }
@@ -240,8 +235,13 @@ public class PrivilegesEvaluator {
                 () -> clusterStateSupplier.get().metadata().getIndicesLookup(),
                 settings
             );
-            actionPrivileges.updateStatefulIndexPrivileges(clusterStateSupplier.get().metadata().getIndicesLookup());
-            this.actionPrivileges = actionPrivileges;
+            Metadata metadata = clusterStateSupplier.get().metadata();
+            actionPrivileges.updateStatefulIndexPrivileges(metadata.getIndicesLookup(), metadata.version());
+            ActionPrivileges oldInstance = this.actionPrivileges.getAndSet(actionPrivileges);
+
+            if (oldInstance != null) {
+                oldInstance.shutdown();
+            }
         }
     }
 
@@ -256,16 +256,16 @@ public class PrivilegesEvaluator {
     }
 
     public ActionPrivileges getActionPrivileges() {
-        return this.actionPrivileges;
+        return this.actionPrivileges.get();
     }
 
     public boolean hasRestAdminPermissions(final User user, final TransportAddress remoteAddress, final String permission) {
         PrivilegesEvaluationContext context = createContext(user, permission);
-        return this.actionPrivileges.hasExplicitClusterPrivilege(context, permission).isAllowed();
+        return this.actionPrivileges.get().hasExplicitClusterPrivilege(context, permission).isAllowed();
     }
 
     public boolean isInitialized() {
-        return configModel != null && dcm != null && actionPrivileges != null;
+        return configModel != null && dcm != null && actionPrivileges.get() != null;
     }
 
     private void setUserInfoInThreadContext(User user) {
@@ -355,7 +355,7 @@ public class PrivilegesEvaluator {
             log.debug("Mapped roles: {}", mappedRoles.toString());
         }
 
-        ActionPrivileges actionPrivileges = this.actionPrivileges;
+        ActionPrivileges actionPrivileges = this.actionPrivileges.get();
         if (actionPrivileges == null) {
             throw new OpenSearchSecurityException("OpenSearch Security is not initialized: roles configuration is missing");
         }

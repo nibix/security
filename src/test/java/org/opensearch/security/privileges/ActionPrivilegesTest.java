@@ -282,7 +282,7 @@ public class ActionPrivilegesTest {
                 );
 
                 if (statefulness == Statefulness.STATEFUL) {
-                    this.subject.updateStatefulIndexPrivileges(INDEX_METADATA);
+                    this.subject.updateStatefulIndexPrivileges(INDEX_METADATA, 1);
                 }
             }
 
@@ -446,7 +446,7 @@ public class ActionPrivilegesTest {
                 this.subject = new ActionPrivileges(roles, FlattenedActionGroups.EMPTY, () -> INDEX_METADATA, Settings.EMPTY);
 
                 if (statefulness == Statefulness.STATEFUL) {
-                    this.subject.updateStatefulIndexPrivileges(INDEX_METADATA);
+                    this.subject.updateStatefulIndexPrivileges(INDEX_METADATA, 1);
                 }
             }
 
@@ -615,7 +615,7 @@ public class ActionPrivilegesTest {
         public void estimatedSize() throws Exception {
             ActionPrivileges subject = new ActionPrivileges(roles, FlattenedActionGroups.EMPTY, () -> indices, Settings.EMPTY);
 
-            subject.updateStatefulIndexPrivileges(indices);
+            subject.updateStatefulIndexPrivileges(indices, 1);
 
             int lowerBound = (int) (expectedEstimatedNumberOfBytes * 0.9);
             int upperBound = (int) (expectedEstimatedNumberOfBytes * 1.1);

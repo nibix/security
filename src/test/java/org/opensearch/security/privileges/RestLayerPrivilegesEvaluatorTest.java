@@ -151,6 +151,7 @@ public class RestLayerPrivilegesEvaluatorTest {
         PrivilegesEvaluator privilegesEvaluator = new PrivilegesEvaluator(
             clusterService,
             () -> clusterService.state(),
+            null,
             new ThreadContext(Settings.EMPTY),
             null,
             new IndexNameExpressionResolver(new ThreadContext(Settings.EMPTY)),

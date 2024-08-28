@@ -17,6 +17,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -32,6 +34,8 @@ import org.opensearch.cluster.metadata.DataStream;
 import org.opensearch.cluster.metadata.IndexAbstraction;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
+import org.opensearch.cluster.metadata.Metadata;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.common.unit.ByteSizeUnit;
@@ -41,6 +45,7 @@ import org.opensearch.security.securityconf.FlattenedActionGroups;
 import org.opensearch.security.securityconf.impl.SecurityDynamicConfiguration;
 import org.opensearch.security.securityconf.impl.v7.RoleV7;
 import org.opensearch.security.support.WildcardMatcher;
+import org.opensearch.threadpool.ThreadPool;
 
 import com.selectivem.collections.CheckTable;
 import com.selectivem.collections.CompactMapGroupBuilder;
@@ -109,7 +114,9 @@ public class ActionPrivileges {
     private final ByteSizeValue statefulIndexMaxHeapSize;
     private final WildcardMatcher statefulIndexIncludeIndices;
 
-    private volatile StatefulIndexPrivileges statefulIndex;
+    private final AtomicReference<StatefulIndexPrivileges> statefulIndex = new AtomicReference<>();
+
+    private Future<?> updateFuture;
 
     /**
      * TODO: It is not nice that we cannot use SecurityDynamicConfiguration<?> with a concrete generic parameter
@@ -190,7 +197,7 @@ public class ActionPrivileges {
             actions
         );
 
-        StatefulIndexPrivileges statefulIndex = this.statefulIndex;
+        StatefulIndexPrivileges statefulIndex = this.statefulIndex.get();
         PrivilegesEvaluatorResponse resultFromStatefulIndex = null;
 
         Map<String, IndexAbstraction> indexMetadata = this.indexMetadataSupplier.get();
@@ -220,18 +227,90 @@ public class ActionPrivileges {
         return this.index.providesExplicitPrivilege(context, actions, resolvedIndices, checkTable, this.indexMetadataSupplier.get());
     }
 
-    public void updateStatefulIndexPrivileges(Map<String, IndexAbstraction> indices) {
-        StatefulIndexPrivileges statefulIndex = this.statefulIndex;
+    public void updateStatefulIndexPrivileges(Map<String, IndexAbstraction> indices, long metadataVersion) {
+        StatefulIndexPrivileges statefulIndex = this.statefulIndex.get();
 
         indices = StatefulIndexPrivileges.relevantOnly(indices, statefulIndexIncludeIndices);
 
         if (statefulIndex == null || !statefulIndex.indices.equals(indices)) {
-            this.statefulIndex = new StatefulIndexPrivileges(roles, actionGroups, wellKnownIndexActions, indices, statefulIndexMaxHeapSize);
+            long start = System.currentTimeMillis();
+            this.statefulIndex.set(
+                new StatefulIndexPrivileges(roles, actionGroups, wellKnownIndexActions, indices, metadataVersion, statefulIndexMaxHeapSize)
+            );
+            long duration = System.currentTimeMillis() - start;
+            log.info("Updating StatefulIndexPrivileges took {} ms", duration);
+        } else {
+            synchronized (this) {
+                // Even if the indices did not change, update the metadataVersion in statefulIndex to reflect
+                // that the instance is up-to-date.
+                if (statefulIndex.metadataVersion < metadataVersion) {
+                    statefulIndex.metadataVersion = metadataVersion;
+                }
+            }
+        }
+    }
+
+    /**
+     * Updates the stateful index configuration asynchronously with the index metadata from the current cluster state.
+     * As the update process can take some seconds for clusters with many indices, this method "de-bounces" the updates,
+     * i.e., a further update will be only initiated after the previous update has finished. This is okay as this class
+     * can handle the case that it do not have the most recent information. It will fall back to slower methods then.
+     */
+    public synchronized void updateStatefulIndexPrivilegesAsync(ClusterService clusterService, ThreadPool threadPool) {
+        long currentMetadataVersion = clusterService.state().metadata().version();
+
+        StatefulIndexPrivileges statefulIndex = this.statefulIndex.get();
+
+        if (statefulIndex != null && currentMetadataVersion <= statefulIndex.metadataVersion) {
+            return;
+        }
+
+        if (this.updateFuture == null || this.updateFuture.isDone()) {
+            this.updateFuture = threadPool.generic().submit(() -> {
+                for (int i = 0;; i++) {
+                    if (i > 10) {
+                        try {
+                            // In case we got many consecutive updates, let's sleep a little to let
+                            // other operations catch up.
+                            Thread.sleep(100);
+                        } catch (InterruptedException e) {
+                            return;
+                        }
+                    }
+
+                    Metadata metadata = clusterService.state().metadata();
+
+                    synchronized (ActionPrivileges.this) {
+                        if (metadata.version() <= ActionPrivileges.this.statefulIndex.get().metadataVersion) {
+                            return;
+                        }
+                    }
+
+                    try {
+                        log.debug("Updating ActionPrivileges with metadata version {}", metadata.version());
+                        updateStatefulIndexPrivileges(metadata.getIndicesLookup(), metadata.version());
+                    } catch (Exception e) {
+                        log.error("Error while updating ActionPrivileges", e);
+                    } finally {
+                        synchronized (ActionPrivileges.this) {
+                            if (ActionPrivileges.this.updateFuture.isCancelled()) {
+                                return;
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    public synchronized void shutdown() {
+        if (this.updateFuture != null && !this.updateFuture.isDone()) {
+            this.updateFuture.cancel(true);
         }
     }
 
     int getEstimatedStatefulIndexByteSize() {
-        StatefulIndexPrivileges statefulIndex = this.statefulIndex;
+        StatefulIndexPrivileges statefulIndex = this.statefulIndex.get();
 
         if (statefulIndex != null) {
             return statefulIndex.estimatedByteSize;
@@ -846,6 +925,8 @@ public class ActionPrivileges {
 
         private final int estimatedByteSize;
 
+        private long metadataVersion;
+
         /**
          * Creates pre-computed index privileges based on the given parameters.
          * <p>
@@ -858,6 +939,7 @@ public class ActionPrivileges {
             FlattenedActionGroups actionGroups,
             ImmutableSet<String> wellKnownIndexActions,
             Map<String, IndexAbstraction> indices,
+            long metadataVersion,
             ByteSizeValue statefulIndexMaxHeapSize
         ) {
             Map<
@@ -951,6 +1033,7 @@ public class ActionPrivileges {
                 );
 
             this.indices = ImmutableMap.copyOf(indices);
+            this.metadataVersion = metadataVersion;
             this.wellKnownIndexActions = wellKnownIndexActions;
         }
 
