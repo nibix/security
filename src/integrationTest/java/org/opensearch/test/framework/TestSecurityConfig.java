@@ -53,11 +53,9 @@ import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.Client;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
-import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -167,14 +165,6 @@ public class TestSecurityConfig {
         }
         return this;
     }
-
-    public  TestSecurityConfig users(User... users) {
-        for (User user : users) {
-            this.user(user);
-        }
-        return this;
-    }
-
 
     public TestSecurityConfig withRestAdminUser(final String name, final String... permissions) {
         if (!internalUsers.containsKey(name)) {
