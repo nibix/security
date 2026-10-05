@@ -44,6 +44,7 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.indices.IndicesService;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.rest.BaseRestHandler;
@@ -74,6 +75,7 @@ public class CompositeIndexAuthorizationIntTests {
     private static final TestSecurityConfig.User LIMITED_USER = new TestSecurityConfig.User("limited_user").roles(
         new TestSecurityConfig.Role("read_with_dls").indexPermissions(ACTION_NAME)
             .dls(QueryBuilders.termQuery("tenant", "blue"))
+            .fls("category")
             .on(RESTRICTED_INDEX.name())
             .indexPermissions(ACTION_NAME)
             .on(UNRESTRICTED_INDEX.name())
@@ -126,6 +128,28 @@ public class CompositeIndexAuthorizationIntTests {
                 assertThat(response, isOk());
                 assertThat(response.getTextFromJsonBody("/has_restrictions"), is("false"));
                 assertThat(response.bodyAsJsonNode().get("restrictions").isEmpty(), is(true));
+            } finally {
+                adminClient.delete(RESTRICTED_INDEX.name());
+                adminClient.delete(UNRESTRICTED_INDEX.name());
+            }
+        }
+    }
+
+    @Test
+    public void mockLogicalPlanRequestReceivesEffectiveFlsFilter() {
+        try (TestRestClient adminClient = cluster.getAdminCertRestClient()) {
+            createIndex(adminClient, RESTRICTED_INDEX);
+            createIndex(adminClient, UNRESTRICTED_INDEX);
+
+            try (TestRestClient client = cluster.getRestClient(LIMITED_USER)) {
+                TestRestClient.HttpResponse response = client.get(
+                    "_mock/read_access/" + RESTRICTED_INDEX.name() + "," + UNRESTRICTED_INDEX.name()
+                );
+
+                assertThat(response, isOk());
+                assertThat(response.getTextFromJsonBody("/visible_fields/" + RESTRICTED_INDEX.name() + "/0"), is("category"));
+                assertThat(response.bodyAsJsonNode().get("visible_fields").get(RESTRICTED_INDEX.name()).size(), is(1));
+                assertThat(response.bodyAsJsonNode().get("visible_fields").get(UNRESTRICTED_INDEX.name()).size(), is(2));
             } finally {
                 adminClient.delete(RESTRICTED_INDEX.name());
                 adminClient.delete(UNRESTRICTED_INDEX.name());
@@ -207,19 +231,23 @@ public class CompositeIndexAuthorizationIntTests {
 
     public static class MockReadAccessResponse extends ActionResponse implements StatusToXContentObject {
         private final Map<String, String> restrictions;
+        private final Map<String, List<String>> visibleFields;
 
-        public MockReadAccessResponse(Map<String, String> restrictions) {
+        public MockReadAccessResponse(Map<String, String> restrictions, Map<String, List<String>> visibleFields) {
             this.restrictions = Map.copyOf(restrictions);
+            this.visibleFields = Map.copyOf(visibleFields);
         }
 
         public MockReadAccessResponse(StreamInput in) throws IOException {
             super(in);
             restrictions = in.readMap(StreamInput::readString, StreamInput::readString);
+            visibleFields = in.readMap(StreamInput::readString, StreamInput::readStringList);
         }
 
         @Override
         public void writeTo(StreamOutput out) throws IOException {
             out.writeMap(restrictions, StreamOutput::writeString, StreamOutput::writeString);
+            out.writeMap(visibleFields, StreamOutput::writeString, StreamOutput::writeStringCollection);
         }
 
         @Override
@@ -227,6 +255,7 @@ public class CompositeIndexAuthorizationIntTests {
             builder.startObject();
             builder.field("has_restrictions", restrictions.isEmpty() == false);
             builder.field("restrictions", restrictions);
+            builder.field("visible_fields", visibleFields);
             return builder.endObject();
         }
 
@@ -238,15 +267,18 @@ public class CompositeIndexAuthorizationIntTests {
 
     public static class TransportMockReadAccessAction extends HandledTransportAction<MockReadAccessRequest, MockReadAccessResponse> {
         private final ReadAccessPolicyService readAccessPolicyService;
+        private final IndicesService indicesService;
 
         @Inject
         public TransportMockReadAccessAction(
             TransportService transportService,
             ActionFilters actionFilters,
-            ReadAccessPolicyService readAccessPolicyService
+            ReadAccessPolicyService readAccessPolicyService,
+            IndicesService indicesService
         ) {
             super(ACTION_NAME, transportService, actionFilters, MockReadAccessRequest::new);
             this.readAccessPolicyService = readAccessPolicyService;
+            this.indicesService = indicesService;
         }
 
         @Override
@@ -261,7 +293,15 @@ public class CompositeIndexAuthorizationIntTests {
                         index -> Strings.toString(MediaTypeRegistry.JSON, policy.restrictionsForIndex(index).orElseThrow())
                     )
                 );
-            listener.onResponse(new MockReadAccessResponse(restrictions));
+            Map<String, List<String>> visibleFields = List.of(request.indices())
+                .stream()
+                .collect(
+                    Collectors.toMap(
+                        index -> index,
+                        index -> List.of("tenant", "category").stream().filter(indicesService.getFieldFilter().apply(index)).toList()
+                    )
+                );
+            listener.onResponse(new MockReadAccessResponse(restrictions, visibleFields));
         }
     }
 
