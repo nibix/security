@@ -29,6 +29,7 @@ import org.bouncycastle.util.encoders.Hex;
 
 import org.opensearch.cluster.metadata.IndexAbstraction;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.index.mapper.FieldValueTransformation;
 import org.opensearch.security.configuration.Salt;
 import org.opensearch.security.privileges.CompiledRoles;
 import org.opensearch.security.privileges.PrivilegesConfigurationValidationException;
@@ -263,6 +264,39 @@ public class FieldMasking extends AbstractRuleBasedPrivileges<FieldMasking.Field
                 }
 
                 return new BytesRef(apply(BytesRef.deepCopyOf(value).bytes));
+            }
+
+            FieldValueTransformation toFieldValueTransformation() {
+                if (expression.getRegexReplacements() != null) {
+                    List<FieldValueTransformation.RegexReplacement> replacements = expression.getRegexReplacements()
+                        .stream()
+                        .map(
+                            replacement -> new FieldValueTransformation.RegexReplacement(
+                                replacement.getRegex().pattern(),
+                                replacement.getReplacement()
+                            )
+                        )
+                        .toList();
+                    return new FieldValueTransformation.RegexReplace(replacements);
+                }
+                if (useLegacyDefaultAlgorithm) {
+                    return new FieldValueTransformation.Hash(FieldValueTransformation.HashAlgorithm.BLAKE2B_256_PERSONALIZED, saltBytes);
+                }
+                if (hashAlgorithm == null) {
+                    return new FieldValueTransformation.Hash(FieldValueTransformation.HashAlgorithm.BLAKE2B_256_SALTED, saltBytes);
+                }
+                if ("SHA-256".equalsIgnoreCase(hashAlgorithm)) {
+                    return new FieldValueTransformation.Hash(FieldValueTransformation.HashAlgorithm.SHA_256, new byte[0]);
+                }
+                if ("SHA-512".equalsIgnoreCase(hashAlgorithm)) {
+                    return new FieldValueTransformation.Hash(FieldValueTransformation.HashAlgorithm.SHA_512, new byte[0]);
+                }
+                throw new IllegalArgumentException(
+                    "Field masking algorithm ["
+                        + hashAlgorithm
+                        + "] is not supported for pluggable data formats; supported algorithms are "
+                        + "[BLAKE2B_256_PERSONALIZED, BLAKE2B_256_SALTED, SHA-256, SHA-512]"
+                );
             }
 
             @Override
