@@ -129,6 +129,7 @@ import org.opensearch.plugins.AccessPolicyProviderPlugin;
 import org.opensearch.plugins.ClusterPlugin;
 import org.opensearch.plugins.ExtensiblePlugin;
 import org.opensearch.plugins.ExtensionAwarePlugin;
+import org.opensearch.plugins.FieldValueTransformationProvider;
 import org.opensearch.plugins.IdentityPlugin;
 import org.opensearch.plugins.MapperPlugin;
 import org.opensearch.plugins.Plugin;
@@ -207,6 +208,7 @@ import org.opensearch.security.privileges.RestLayerPrivilegesEvaluator;
 import org.opensearch.security.privileges.RoleMapper;
 import org.opensearch.security.privileges.actionlevel.RoleBasedActionPrivileges;
 import org.opensearch.security.privileges.dlsfls.DlsFlsBaseContext;
+import org.opensearch.security.privileges.dlsfls.FieldValueTransformationResolver;
 import org.opensearch.security.privileges.dlsfls.ReadAccessPolicyProviderImpl;
 import org.opensearch.security.resources.PluginDefaultRolesHelper;
 import org.opensearch.security.resources.ResourceAccessControlClient;
@@ -1663,6 +1665,7 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
 
         dlsFlsBaseContext = new DlsFlsBaseContext(privilegesConfiguration, threadPool.getThreadContext(), adminDns);
         readAccessPolicyProvider = new ReadAccessPolicyProviderImpl(dlsFlsBaseContext);
+        FieldValueTransformationProvider fieldValueTransformationProvider = new FieldValueTransformationResolver(dlsFlsBaseContext);
 
         if (sslConfig.isSslOnlyMode()) {
             dlsFlsValve = new DlsFlsRequestValve.NoopDlsFlsRequestValve();
@@ -1810,6 +1813,7 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
         components.add(passwordHasher);
         components.add(apiTokenRepository);
         components.add(rolePermissionValidator);
+        components.add(fieldValueTransformationProvider);
 
         components.add(sslSettingsManager);
         if (isSslCertReloadEnabled(settings) && sslCertificatesHotReloadEnabled(settings)) {
