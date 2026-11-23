@@ -18,8 +18,8 @@ import java.util.Set;
 
 import org.junit.Test;
 
+import org.opensearch.action.support.DocumentLevelReadAccessPolicy;
 import org.opensearch.action.support.ReadAccessContext;
-import org.opensearch.action.support.ReadAccessPolicy;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -41,7 +41,7 @@ public class ReadAccessPolicyProviderImplTest {
         DlsFlsBaseContext baseContext = mock(DlsFlsBaseContext.class);
         ReadAccessPolicyProviderImpl provider = new ReadAccessPolicyProviderImpl(baseContext);
 
-        assertThat(provider.getReadAccessPolicy(context("logs")), sameInstance(ReadAccessPolicy.unrestricted()));
+        assertThat(provider.getDocumentLevelReadAccessPolicy(context("logs")), sameInstance(DocumentLevelReadAccessPolicy.unrestricted()));
     }
 
     @Test
@@ -49,7 +49,7 @@ public class ReadAccessPolicyProviderImplTest {
         DlsFlsBaseContext baseContext = baseContext(DlsRestriction.FULL, "logs");
         ReadAccessPolicyProviderImpl provider = new ReadAccessPolicyProviderImpl(baseContext);
 
-        QueryBuilder query = provider.getReadAccessPolicy(context("logs")).restrictionsForIndex("logs").orElseThrow();
+        QueryBuilder query = provider.getDocumentLevelReadAccessPolicy(context("logs")).restrictionsForIndex("logs").orElseThrow();
 
         assertThat(query, instanceOf(MatchNoneQueryBuilder.class));
     }
@@ -67,7 +67,7 @@ public class ReadAccessPolicyProviderImplTest {
         DlsFlsBaseContext baseContext = baseContext(restriction, "logs");
         ReadAccessPolicyProviderImpl provider = new ReadAccessPolicyProviderImpl(baseContext);
 
-        QueryBuilder query = provider.getReadAccessPolicy(context("logs")).restrictionsForIndex("logs").orElseThrow();
+        QueryBuilder query = provider.getDocumentLevelReadAccessPolicy(context("logs")).restrictionsForIndex("logs").orElseThrow();
 
         assertThat(query, instanceOf(BoolQueryBuilder.class));
         BoolQueryBuilder bool = (BoolQueryBuilder) query;
@@ -87,7 +87,9 @@ public class ReadAccessPolicyProviderImplTest {
         );
         DlsFlsBaseContext baseContext = baseContext(Map.of("logs-a", firstRestriction, "logs-b", secondRestriction));
 
-        ReadAccessPolicy policy = new ReadAccessPolicyProviderImpl(baseContext).getReadAccessPolicy(context("logs-a", "logs-b"));
+        DocumentLevelReadAccessPolicy policy = new ReadAccessPolicyProviderImpl(baseContext).getDocumentLevelReadAccessPolicy(
+            context("logs-a", "logs-b")
+        );
 
         assertThat(policy.indexGroups(), hasSize(1));
         assertThat(policy.indexGroups().iterator().next().concreteIndices(), is(Set.of("logs-a", "logs-b")));

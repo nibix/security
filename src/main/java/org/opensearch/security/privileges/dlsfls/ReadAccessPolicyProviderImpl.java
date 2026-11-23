@@ -18,8 +18,8 @@ import java.util.Map;
 import java.util.Set;
 
 import org.opensearch.OpenSearchSecurityException;
+import org.opensearch.action.support.DocumentLevelReadAccessPolicy;
 import org.opensearch.action.support.ReadAccessContext;
-import org.opensearch.action.support.ReadAccessPolicy;
 import org.opensearch.action.support.ReadAccessPolicyProvider;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -36,10 +36,10 @@ public final class ReadAccessPolicyProviderImpl implements ReadAccessPolicyProvi
     }
 
     @Override
-    public ReadAccessPolicy getReadAccessPolicy(ReadAccessContext context) {
+    public DocumentLevelReadAccessPolicy getDocumentLevelReadAccessPolicy(ReadAccessContext context) {
         PrivilegesEvaluationContext privilegesContext = baseContext.getPrivilegesEvaluationContext();
         if (privilegesContext == null) {
-            return ReadAccessPolicy.unrestricted();
+            return DocumentLevelReadAccessPolicy.unrestricted();
         }
 
         try {
@@ -55,7 +55,7 @@ public final class ReadAccessPolicyProviderImpl implements ReadAccessPolicyProvi
                 }
             }
 
-            return new ReadAccessPolicyImpl(indicesByRestriction, unrestrictedIndices);
+            return new DocumentLevelReadAccessPolicyImpl(indicesByRestriction, unrestrictedIndices);
         } catch (PrivilegesEvaluationException e) {
             throw new OpenSearchSecurityException("Unable to determine DLS policy", e);
         }

@@ -74,7 +74,7 @@ import org.opensearch.action.bulk.BulkAction;
 import org.opensearch.action.search.PitService;
 import org.opensearch.action.search.SearchScrollAction;
 import org.opensearch.action.support.ActionFilter;
-import org.opensearch.action.support.ReadAccessPolicy;
+import org.opensearch.action.support.DocumentLevelReadAccessPolicy;
 import org.opensearch.action.support.ReadAccessPolicyProvider;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.NamedDiff;
@@ -320,7 +320,7 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
     private boolean sslCertReloadEnabled;
     private volatile SecurityInterceptor si;
     private volatile PrivilegesConfiguration privilegesConfiguration;
-    private volatile ReadAccessPolicyProvider readAccessPolicyProvider = context -> ReadAccessPolicy.unrestricted();
+    private volatile ReadAccessPolicyProvider readAccessPolicyProvider = context -> DocumentLevelReadAccessPolicy.unrestricted();
     private volatile RoleMapper roleMapper;
     private volatile UserService userService;
     private volatile RestLayerPrivilegesEvaluator restLayerEvaluator;

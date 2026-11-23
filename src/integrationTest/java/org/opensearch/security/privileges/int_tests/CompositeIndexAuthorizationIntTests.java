@@ -22,10 +22,10 @@ import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.ActionType;
 import org.opensearch.action.IndicesRequest;
 import org.opensearch.action.support.ActionFilters;
+import org.opensearch.action.support.DocumentLevelReadAccessPolicy;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.ReadAccessContext;
-import org.opensearch.action.support.ReadAccessPolicy;
 import org.opensearch.action.support.ReadAccessPolicyService;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNodes;
@@ -251,7 +251,9 @@ public class CompositeIndexAuthorizationIntTests {
 
         @Override
         protected void doExecute(Task task, MockReadAccessRequest request, ActionListener<MockReadAccessResponse> listener) {
-            ReadAccessPolicy policy = readAccessPolicyService.getReadAccessPolicy(ReadAccessContext.of(List.of(request.indices())));
+            DocumentLevelReadAccessPolicy policy = readAccessPolicyService.getDocumentLevelReadAccessPolicy(
+                ReadAccessContext.of(List.of(request.indices()))
+            );
             Map<String, String> restrictions = policy.coveredConcreteIndices()
                 .stream()
                 .filter(index -> policy.restrictionsForIndex(index).isPresent())
