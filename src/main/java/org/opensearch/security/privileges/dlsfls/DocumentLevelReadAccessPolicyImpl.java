@@ -22,18 +22,18 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import org.opensearch.action.support.ReadAccessPolicy;
+import org.opensearch.action.support.DocumentLevelReadAccessPolicy;
 import org.opensearch.index.query.QueryBuilder;
 
 /** Security's immutable implementation of a grouped read-access policy. */
-public final class ReadAccessPolicyImpl implements ReadAccessPolicy {
+public final class DocumentLevelReadAccessPolicyImpl implements DocumentLevelReadAccessPolicy {
 
     private final List<IndexGroup> indexGroups;
     private final Set<String> coveredConcreteIndices;
     private final Map<String, Optional<QueryBuilder>> restrictionsByIndex;
     private final boolean hasRestrictions;
 
-    public ReadAccessPolicyImpl(
+    public DocumentLevelReadAccessPolicyImpl(
         Map<? extends QueryBuilder, ? extends Collection<String>> indicesByRestriction,
         Collection<String> unrestrictedIndices
     ) {

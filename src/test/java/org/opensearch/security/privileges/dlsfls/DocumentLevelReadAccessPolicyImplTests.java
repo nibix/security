@@ -18,7 +18,7 @@ import java.util.Set;
 
 import org.junit.Test;
 
-import org.opensearch.action.support.ReadAccessPolicy;
+import org.opensearch.action.support.DocumentLevelReadAccessPolicy;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 
@@ -28,12 +28,15 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.Assert.assertThrows;
 
-public class ReadAccessPolicyImplTests {
+public class DocumentLevelReadAccessPolicyImplTests {
 
     @Test
     public void groupsIndicesWithSharedRestrictions() {
         QueryBuilder restriction = QueryBuilders.termQuery("tenant", "blue");
-        ReadAccessPolicy policy = new ReadAccessPolicyImpl(Map.of(restriction, List.of("logs-2025", "logs-2026")), List.of("public-logs"));
+        DocumentLevelReadAccessPolicy policy = new DocumentLevelReadAccessPolicyImpl(
+            Map.of(restriction, List.of("logs-2025", "logs-2026")),
+            List.of("public-logs")
+        );
 
         assertThat(policy.hasRestrictions(), is(true));
         assertThat(policy.coveredConcreteIndices(), is(Set.of("logs-2025", "logs-2026", "public-logs")));
@@ -52,7 +55,7 @@ public class ReadAccessPolicyImplTests {
 
         IllegalArgumentException exception = assertThrows(
             IllegalArgumentException.class,
-            () -> new ReadAccessPolicyImpl(groups, List.of())
+            () -> new DocumentLevelReadAccessPolicyImpl(groups, List.of())
         );
 
         assertThat(exception.getMessage(), is("Concrete index [logs] occurs in more than one index group"));
