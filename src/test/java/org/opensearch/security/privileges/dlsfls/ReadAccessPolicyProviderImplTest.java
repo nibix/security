@@ -20,6 +20,7 @@ import org.junit.Test;
 
 import org.opensearch.action.support.DocumentLevelReadAccessPolicy;
 import org.opensearch.action.support.ReadAccessContext;
+import org.opensearch.index.mapper.FieldValueTransformation;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -42,6 +43,26 @@ public class ReadAccessPolicyProviderImplTest {
         ReadAccessPolicyProviderImpl provider = new ReadAccessPolicyProviderImpl(baseContext);
 
         assertThat(provider.getDocumentLevelReadAccessPolicy(context("logs")), sameInstance(DocumentLevelReadAccessPolicy.unrestricted()));
+    }
+
+    @Test
+    public void providesFieldMaskingThroughReadAccessProvider() throws Exception {
+        PrivilegesEvaluationContext privilegesContext = mock(PrivilegesEvaluationContext.class);
+        FieldMasking fieldMasking = mock(FieldMasking.class);
+        FieldMasking.FieldMaskingRule rule = FieldMasking.FieldMaskingRule.of(FieldMasking.Config.DEFAULT, "secret::SHA-256");
+        DlsFlsProcessedConfig config = mock(DlsFlsProcessedConfig.class);
+        when(config.getFieldMasking()).thenReturn(fieldMasking);
+        when(fieldMasking.getRestriction(privilegesContext, "logs")).thenReturn(rule);
+        DlsFlsBaseContext baseContext = mock(DlsFlsBaseContext.class);
+        when(baseContext.getPrivilegesEvaluationContext()).thenReturn(privilegesContext);
+        when(baseContext.config()).thenReturn(config);
+
+        FieldValueTransformation transformation = new ReadAccessPolicyProviderImpl(baseContext).getFieldValueTransformationPolicy("logs")
+            .resolve("secret")
+            .orElseThrow();
+
+        assertThat(transformation, instanceOf(FieldValueTransformation.Hash.class));
+        assertThat(((FieldValueTransformation.Hash) transformation).algorithm(), is(FieldValueTransformation.HashAlgorithm.SHA_256));
     }
 
     @Test

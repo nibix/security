@@ -75,6 +75,8 @@ import org.opensearch.action.search.PitService;
 import org.opensearch.action.search.SearchScrollAction;
 import org.opensearch.action.support.ActionFilter;
 import org.opensearch.action.support.DocumentLevelReadAccessPolicy;
+import org.opensearch.action.support.FieldValueTransformationPolicy;
+import org.opensearch.action.support.ReadAccessContext;
 import org.opensearch.action.support.ReadAccessPolicyProvider;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.NamedDiff;
@@ -129,7 +131,6 @@ import org.opensearch.plugins.AccessPolicyProviderPlugin;
 import org.opensearch.plugins.ClusterPlugin;
 import org.opensearch.plugins.ExtensiblePlugin;
 import org.opensearch.plugins.ExtensionAwarePlugin;
-import org.opensearch.plugins.FieldValueTransformationProvider;
 import org.opensearch.plugins.IdentityPlugin;
 import org.opensearch.plugins.MapperPlugin;
 import org.opensearch.plugins.Plugin;
@@ -208,7 +209,6 @@ import org.opensearch.security.privileges.RestLayerPrivilegesEvaluator;
 import org.opensearch.security.privileges.RoleMapper;
 import org.opensearch.security.privileges.actionlevel.RoleBasedActionPrivileges;
 import org.opensearch.security.privileges.dlsfls.DlsFlsBaseContext;
-import org.opensearch.security.privileges.dlsfls.FieldValueTransformationResolver;
 import org.opensearch.security.privileges.dlsfls.ReadAccessPolicyProviderImpl;
 import org.opensearch.security.resources.PluginDefaultRolesHelper;
 import org.opensearch.security.resources.ResourceAccessControlClient;
@@ -322,7 +322,17 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
     private boolean sslCertReloadEnabled;
     private volatile SecurityInterceptor si;
     private volatile PrivilegesConfiguration privilegesConfiguration;
-    private volatile ReadAccessPolicyProvider readAccessPolicyProvider = context -> DocumentLevelReadAccessPolicy.unrestricted();
+    private volatile ReadAccessPolicyProvider readAccessPolicyProvider = new ReadAccessPolicyProvider() {
+        @Override
+        public DocumentLevelReadAccessPolicy getDocumentLevelReadAccessPolicy(ReadAccessContext context) {
+            return DocumentLevelReadAccessPolicy.unrestricted();
+        }
+
+        @Override
+        public FieldValueTransformationPolicy getFieldValueTransformationPolicy(String concreteIndex) {
+            return FieldValueTransformationPolicy.unrestricted();
+        }
+    };
     private volatile RoleMapper roleMapper;
     private volatile UserService userService;
     private volatile RestLayerPrivilegesEvaluator restLayerEvaluator;
@@ -1665,7 +1675,6 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
 
         dlsFlsBaseContext = new DlsFlsBaseContext(privilegesConfiguration, threadPool.getThreadContext(), adminDns);
         readAccessPolicyProvider = new ReadAccessPolicyProviderImpl(dlsFlsBaseContext);
-        FieldValueTransformationProvider fieldValueTransformationProvider = new FieldValueTransformationResolver(dlsFlsBaseContext);
 
         if (sslConfig.isSslOnlyMode()) {
             dlsFlsValve = new DlsFlsRequestValve.NoopDlsFlsRequestValve();
@@ -1813,7 +1822,6 @@ public final class OpenSearchSecurityPlugin extends OpenSearchSecuritySSLPlugin
         components.add(passwordHasher);
         components.add(apiTokenRepository);
         components.add(rolePermissionValidator);
-        components.add(fieldValueTransformationProvider);
 
         components.add(sslSettingsManager);
         if (isSslCertReloadEnabled(settings) && sslCertificatesHotReloadEnabled(settings)) {

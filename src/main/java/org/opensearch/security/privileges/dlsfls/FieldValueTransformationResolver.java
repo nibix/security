@@ -14,13 +14,13 @@ package org.opensearch.security.privileges.dlsfls;
 import java.util.Optional;
 
 import org.opensearch.OpenSearchSecurityException;
+import org.opensearch.action.support.FieldValueTransformationPolicy;
 import org.opensearch.index.mapper.FieldValueTransformation;
-import org.opensearch.plugins.FieldValueTransformationProvider;
 import org.opensearch.security.privileges.PrivilegesEvaluationContext;
 import org.opensearch.security.privileges.PrivilegesEvaluationException;
 
 /** Resolves the effective Security field-masking rule for a concrete index and mapped leaf. */
-public final class FieldValueTransformationResolver implements FieldValueTransformationProvider {
+public final class FieldValueTransformationResolver {
 
     private final DlsFlsBaseContext baseContext;
 
@@ -28,8 +28,7 @@ public final class FieldValueTransformationResolver implements FieldValueTransfo
         this.baseContext = baseContext;
     }
 
-    @Override
-    public FieldTransformations forIndex(String concreteIndex) {
+    public FieldValueTransformationPolicy forIndex(String concreteIndex) {
         return field -> resolve(concreteIndex, field);
     }
 
