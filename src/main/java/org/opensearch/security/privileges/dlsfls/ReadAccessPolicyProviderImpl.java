@@ -19,6 +19,7 @@ import java.util.Set;
 
 import org.opensearch.OpenSearchSecurityException;
 import org.opensearch.action.support.DocumentLevelReadAccessPolicy;
+import org.opensearch.action.support.FieldValueTransformationPolicy;
 import org.opensearch.action.support.ReadAccessContext;
 import org.opensearch.action.support.ReadAccessPolicyProvider;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -30,9 +31,11 @@ import org.opensearch.security.privileges.PrivilegesEvaluationException;
 public final class ReadAccessPolicyProviderImpl implements ReadAccessPolicyProvider {
 
     private final DlsFlsBaseContext baseContext;
+    private final FieldValueTransformationResolver fieldValueTransformationResolver;
 
     public ReadAccessPolicyProviderImpl(DlsFlsBaseContext baseContext) {
         this.baseContext = baseContext;
+        this.fieldValueTransformationResolver = new FieldValueTransformationResolver(baseContext);
     }
 
     @Override
@@ -59,6 +62,11 @@ public final class ReadAccessPolicyProviderImpl implements ReadAccessPolicyProvi
         } catch (PrivilegesEvaluationException e) {
             throw new OpenSearchSecurityException("Unable to determine DLS policy", e);
         }
+    }
+
+    @Override
+    public FieldValueTransformationPolicy getFieldValueTransformationPolicy(String concreteIndex) {
+        return fieldValueTransformationResolver.forIndex(concreteIndex);
     }
 
     private static QueryBuilder combine(List<DocumentPrivileges.RenderedDlsQuery> queries) {
