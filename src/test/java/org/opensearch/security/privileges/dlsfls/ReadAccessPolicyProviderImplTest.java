@@ -58,8 +58,7 @@ public class ReadAccessPolicyProviderImplTest {
         when(baseContext.config()).thenReturn(config);
 
         FieldValueTransformation transformation = new ReadAccessPolicyProviderImpl(baseContext).getFieldValueTransformationPolicy("logs")
-            .resolve("secret")
-            .orElseThrow();
+            .resolve("secret");
 
         assertThat(transformation, instanceOf(FieldValueTransformation.Hash.class));
         assertThat(((FieldValueTransformation.Hash) transformation).algorithm(), is(FieldValueTransformation.HashAlgorithm.SHA_256));

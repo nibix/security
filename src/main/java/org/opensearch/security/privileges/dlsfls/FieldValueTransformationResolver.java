@@ -11,7 +11,9 @@
 
 package org.opensearch.security.privileges.dlsfls;
 
-import java.util.Optional;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.opensearch.OpenSearchSecurityException;
 import org.opensearch.action.support.FieldValueTransformationPolicy;
@@ -29,24 +31,35 @@ public final class FieldValueTransformationResolver {
     }
 
     public FieldValueTransformationPolicy forIndex(String concreteIndex) {
-        return field -> resolve(concreteIndex, field);
-    }
-
-    private Optional<FieldValueTransformation> resolve(String concreteIndex, String field) {
         PrivilegesEvaluationContext context = baseContext.getPrivilegesEvaluationContext();
         if (context == null) {
-            return Optional.empty();
+            return FieldValueTransformationPolicy.unrestricted();
         }
 
         try {
             FieldMasking.FieldMaskingRule rule = baseContext.config().getFieldMasking().getRestriction(context, concreteIndex);
-            FieldMasking.FieldMaskingRule.Field transformation = rule.get(field);
-            return transformation == null ? Optional.empty() : Optional.of(transformation.toFieldValueTransformation());
+            return new FieldValueTransformationPolicy() {
+                @Override
+                public FieldValueTransformation resolve(String mappedLeafField) {
+                    FieldMasking.FieldMaskingRule.Field transformation = rule.get(mappedLeafField);
+                    return transformation == null ? FieldValueTransformation.none() : transformation.toFieldValueTransformation();
+                }
+
+                @Override
+                public Map<String, FieldValueTransformation> resolve(Collection<String> mappedLeafFields) {
+                    Map<String, FieldValueTransformation> resolved = new HashMap<>();
+                    for (String field : mappedLeafFields) {
+                        FieldMasking.FieldMaskingRule.Field transformation = rule.get(field);
+                        resolved.put(
+                            field,
+                            transformation == null ? FieldValueTransformation.none() : transformation.toFieldValueTransformation()
+                        );
+                    }
+                    return Map.copyOf(resolved);
+                }
+            };
         } catch (PrivilegesEvaluationException e) {
-            throw new OpenSearchSecurityException(
-                "Unable to determine field masking policy for index [" + concreteIndex + "] and field [" + field + "]",
-                e
-            );
+            throw new OpenSearchSecurityException("Unable to determine field masking policy for index [" + concreteIndex + "]", e);
         }
     }
 }

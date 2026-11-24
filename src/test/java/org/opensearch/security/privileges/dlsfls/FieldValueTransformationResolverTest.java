@@ -13,12 +13,13 @@ package org.opensearch.security.privileges.dlsfls;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 
 import org.junit.Test;
 import org.bouncycastle.util.encoders.Hex;
 
 import org.opensearch.OpenSearchSecurityException;
+import org.opensearch.action.support.FieldValueTransformationPolicy;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.mapper.FieldValueTransformation;
 import org.opensearch.security.privileges.PrivilegesEvaluationContext;
@@ -26,12 +27,13 @@ import org.opensearch.security.privileges.PrivilegesEvaluationException;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class FieldValueTransformationResolverTest {
@@ -92,22 +94,30 @@ public class FieldValueTransformationResolverTest {
         when(baseContext.getPrivilegesEvaluationContext()).thenReturn(context);
         when(baseContext.config()).thenReturn(config);
 
-        Optional<FieldValueTransformation> transformation = new FieldValueTransformationResolver(baseContext).forIndex("logs-000001")
-            .resolve("secret");
+        FieldValueTransformationPolicy policy = new FieldValueTransformationResolver(baseContext).forIndex("logs-000001");
+        FieldValueTransformation transformation = policy.resolve("secret");
 
-        assertThat(transformation.orElseThrow(), instanceOf(FieldValueTransformation.Hash.class));
-        assertThat(
-            ((FieldValueTransformation.Hash) transformation.orElseThrow()).algorithm(),
-            is(FieldValueTransformation.HashAlgorithm.SHA_256)
-        );
-        assertThat(new FieldValueTransformationResolver(baseContext).forIndex("logs-000001").resolve("visible").stream().toList(), empty());
+        assertThat(transformation, instanceOf(FieldValueTransformation.Hash.class));
+        assertThat(((FieldValueTransformation.Hash) transformation).algorithm(), is(FieldValueTransformation.HashAlgorithm.SHA_256));
+        assertThat(policy.resolve("visible").isPresent(), is(false));
+        when(baseContext.getPrivilegesEvaluationContext()).thenReturn(null);
+        Map<String, FieldValueTransformation> bulk = policy.resolve(List.of("visible", "secret", "visible"));
+        assertThat(bulk.size(), is(2));
+        assertThat(bulk.get("visible"), is(FieldValueTransformation.none()));
+        assertThat(bulk.get("secret"), instanceOf(FieldValueTransformation.Hash.class));
+        verify(fieldMasking, times(1)).getRestriction(context, "logs-000001");
     }
 
     @Test
     public void returnsNoTransformationForSystemContext() {
         DlsFlsBaseContext baseContext = mock(DlsFlsBaseContext.class);
 
-        assertThat(new FieldValueTransformationResolver(baseContext).forIndex("logs").resolve("secret").stream().toList(), empty());
+        FieldValueTransformationPolicy policy = new FieldValueTransformationResolver(baseContext).forIndex("logs");
+        assertThat(policy.resolve("secret").isPresent(), is(false));
+        assertThat(
+            policy.resolve(List.of("visible", "secret")),
+            is(Map.of("visible", FieldValueTransformation.none(), "secret", FieldValueTransformation.none()))
+        );
     }
 
     @Test
@@ -128,7 +138,7 @@ public class FieldValueTransformationResolverTest {
             () -> new FieldValueTransformationResolver(baseContext).forIndex("logs").resolve("secret")
         );
 
-        assertThat(exception.getMessage(), containsString("index [logs] and field [secret]"));
+        assertThat(exception.getMessage(), containsString("index [logs]"));
     }
 
     @Test
